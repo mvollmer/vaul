@@ -1,0 +1,1639 @@
+ \section{Basis der Typenhierarchie} 
+\smallskip
+\begin{ndesc}{\b{Node}}{}
+ Alle anderen Knotentypen sind von <Node> abgeleitet; einer muß ja
+  mal den Anfang machen.
+
+ \begin{desc}{"vaul_design_unit *" \b{owner};}
+   Ordnet jedem Knoten die "vaul_design_unit" zu, aus dessen Analyse er
+   hervorgegangen ist. Knoten, die von einer "vaul_library" oder einem
+   "vaul_lib\-pool" kommen, haben garantiert $<owner> \neq "NULL"$, alle
+   anderen können auch $<owner> = "NULL"$ haben.
+  \end{desc}
+
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{PosNode} : Node}{}
+ Ausgewählte Knotentypen (fast alle) haben zusätzlich zum <owner> noch
+  eine Angabe über die Zeilennummer des VHDL Textes, der zu diesem
+  Knoten geführt hat. Sehr nützlich für Fehlermeldungen.
+
+ \shortdesc{"int" \b{lineno};}
+\end{ndesc}
+
+ \section{Namen}
+
+\begin{ndesc}{"typedef char *"\b{Id};}{}
+Alle Attribute die einen einfachen Namen bedeuten, haben diesen Typ.
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{IdList} : PosNode : Node}{}
+ <IdList>s sind eine einfache Auflistung von <Id>s. Die Reihenfolge
+  der <Id>s in der Liste entspricht nicht unbeding der Reihenfolge im
+  VHDL Text. 
+ \shortdesc{"Id" \b{id};}
+ \shortdesc{IdList \b{link};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Name} : PosNode : Node}{\ \internal}
+ Die Basis für alle Namenknoten.
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SimpleName} : Name : PosNode : Node}{\ \internal}
+ <SimpleName>s sind einfache Namen, die nur aus einem "Id" bestehen.
+ \shortdesc{"Id" \b{id};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{OpSymbol} : Name : PosNode : Node}{\ \internal}
+ Ein <OpSymbol> beschreibt ein Operator Symbol.
+ \begin{desc}{"Id" \b{op};}
+Der Name des Operators, komplett mit `"\dq"',
+                 z.B. `"\dq and\dq"'. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SelName} : Name : PosNode : Node}{\ \internal}
+ <SelName>s stellen <selected names> der Form <prefix>.<suffix> dar.
+ \begin{desc}{Name \b{prefix};}
+Entweder ein weiterer <SelName> oder ein <SimpleName>.
+ \end{desc}
+ \shortdesc{"Id" \b{suffix};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{IftsName} : Name : PosNode : Node}{\ \internal}
+ <IftsName>s erfüllen viele Aufgabe (dank der wunderbaren
+  Eindeutigkeit der VHDL Grammatik). Sie stellen Indizierungen,
+  Funktionsaufrufe, Typumwandlungen oder <slices> dar.
+
+ \shortdesc{Name \b{prefix};}
+ \begin{desc}{GenAssocElem \b{assoc};}
+ Der jeweilige Kontext des <IftsName> bestimmt die Bedeutung
+          und Gültigkeit der verschiedenen <GenAssocElem>s in diese Liste. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{AttributeName} : Name : PosNode : Node}{\ \internal}
+
+ \shortdesc{Name \b{prefix};}
+ \shortdesc{"Id" \b{attribute};}
+ \begin{desc}{NamedAssocElem \b{first_actual};}
+ Die optionalen Parameter des Attributes. `Kein Parameter'
+          wird durch <first_actual>$ == "NULL"$ ausgedrückt. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SelNameList} : PosNode : Node}{\ \internal}
+
+ \shortdesc{SelName \b{name};}
+ \shortdesc{SelNameList \b{link};}
+\end{ndesc}
+
+ \section{Deklarationen und Gültigkeitsbereiche}
+
+Deklarationen geben den Dingen ihren Namen; aber auch die anonymen
+Konstrukte werden als Deklarationen dargestellt. 
+
+
+\smallskip
+\begin{ndesc}{\b{Declaration} : PosNode : Node}{}
+ Die Basis für alle Deklarationen. Konkrete Dinge werden durch abgeleitete
+  Knotentypen dargetstellt. 
+ \begin{desc}{Declaration \b{next_decl};}
+ Alle <Declaration>s eines <Scope>s werden
+	  mit <nect_decl> zu einer "NULL"-terminierten Liste zusammengehängt.
+	
+ \end{desc}
+ \begin{desc}{"Id" \b{id};}
+ Der Name dieses Dings. Unbenannte Dinge haben $<id> == "NULL"$.
+	
+ \end{desc}
+ \begin{desc}{Scope \b{scope};}
+ <scope> zeigt auf den <Scope> der diese <Declaration> enthält.
+	  Einige <Declaration>s sind keinem <Scope> zugeordnet und haben
+	  $<scope> == "NULL"$.
+	
+ \end{desc}
+ \begin{desc}{Declaration \b{next}();}
+	  Ein Gültigkeitsbereich kann durch mehrere <Scope>s
+          dargestellt werden.\footnote{Z.B. bilden ein "package" und
+          der zugehörige "package body" einen einzigen
+          Gültigkeitsbereich. Jeder wird aber einzeln durch einen
+          <Scope>-Knoten represäntiert. Diese beiden <Scope>s sind
+          über ihren <continued> Zeiger zusammengehängt.}  <next()>
+          wandert durch alle <Declaration>s dieser zusammenhängenden
+          <Scope>s, während über <next_decl> nur die <Declaration>s
+          eines einzigen <Scope>s erreichbar sind.
+	  \end{desc}
+	
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{AttributedDeclaration} : Declaration : PosNode : Node}{}
+ Die Basis für alle Deklarationen, die mit benutzerdefinierten
+  Attributen garniert werden können. Noch nicht realisiert.
+
+ \shortdesc{AttributeValue \b{first_attribute};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Attribute} : Declaration : PosNode : Node}{}
+ Ein benutzerdefiniertes Attribut. 
+ \shortdesc{Type \b{type};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{AttributeValue} : PosNode : Node}{}
+ Der Wert eines benutzerdefinierten Attributes aus einer
+  <attribute specification>. Noch nicht realisiert.
+
+ \shortdesc{AttributeValue \b{next};}
+ \shortdesc{Attribute \b{attribute};}
+ \shortdesc{Expr \b{value};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Scope} : AttributedDeclaration : Declaration : PosNode : Node}{}
+ Ein <Scope> enthält alle <Declaration>s einer <declarative region>.
+
+ \begin{desc}{Scope \b{continued};}
+ Alle <Scope>s eines Gültigkeitsbereichs werden über <continued>
+	  zu einer "NULL"-terminierten Liste zusammengehängt.
+	
+ \end{desc}
+ \begin{desc}{Declaration \b{first_decl};}
+ Die erste <Declaration> dieser <declarative region>.
+ \end{desc}
+\begin{desc}{Declaration \b{first}();}
+	 Liefert die erste <Declaration> des Gültigkeitsbereichs, der mit
+	 diesem <Scope> beginnt.
+	 \end{desc}
+	
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{TopScope} : Scope : AttributedDeclaration : Declaration : PosNode : \dots}{}
+ Ein <TopScope> repräsentiert die Umgebung einer <design unit> und nimmt
+ die Informationen aus <library> und <use clauses> auf sowie die <design unit>
+ selbst. Ein <TopScope> ist der einzige <Scope> mit $<scope> == "NULL"$
+
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{LibNameDecl} : Declaration : PosNode : Node}{}
+ <LibNameDecl>s tauchen nur in einem <TopScope> auf und nehmen die
+  Informationen aus <library clauses> auf.
+
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{IndirectDecl} : Declaration : PosNode : Node}{}
+ <use clauses> werden in <IndirectDecl>s umgesetzt. 
+
+ \begin{desc}{Package \b{ind_scope};}
+ Der <Scope>, dessen Deklarationen im <Scope> dieser <IndirectDecl>
+          potentiell sichtbar sein sollen. $<id> == "NULL"$ bedeutet, daß
+          alle Deklarationen in <ind_scope> betrachtet werden sollen,
+          ansonsten sind nur die potentiell sichtbar, dessen <id> mit der
+          <id> dieser <IndirectDecl> übereinstimmen.
+	
+ \end{desc}
+\end{ndesc}
+
+ \subsection{Design Units}
+
+<design units> werden allesamt durch Knoten dargestellt, die von
+<Scope> abgeleitet sind. Diese Knoten können nur innerhalb eines
+<TopScopes> auftauchen.
+
+\smallskip
+\begin{ndesc}{\b{Package} : Scope : AttributedDeclaration : Declaration : PosNode : \dots}{}
+ \ 
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{StandardPackage} : Package : Scope : AttributedDeclaration : \dots}{}
+ Da die Deklarationen aus dem <package> "std.standard" für viele Teile des
+ Compilers wichtig sind, werden die benötigten Deklarationen hier notiert.
+
+ \shortdesc{Type \b{predef_BIT};}
+ \shortdesc{Type \b{predef_BOOLEAN};}
+ \shortdesc{Type \b{predef_INTEGER};}
+ \shortdesc{Type \b{predef_REAL};}
+ \shortdesc{Type \b{predef_TIME};}
+ \shortdesc{Type \b{predef_STRING};}
+ \shortdesc{Type \b{predef_BIT_VECTOR};}
+ \shortdesc{Type \b{predef_SEVERITY_LEVEL};}
+ \shortdesc{Type \b{predef_FILE_OPEN_KIND};}
+ \shortdesc{UniversalInteger \b{universal_integer};}
+ \shortdesc{UniversalReal \b{universal_real};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{PackageBody} : Scope : AttributedDeclaration : Declaration : \dots}{}
+ <continued> zeigt auf das zugehörige <Package>. Für Konstanten, die
+  im <Package> nicht initialisiert wurden, kann dies im <PackageBody> mit
+  einem <ConstantBody> nachgeholt werden.
+
+\end{ndesc}
+
+ \subsection{Typen} 
+
+Die Knotentypen der Typen and Subtypen bilden eine gemeinsame Hierarchie mit
+der Basis <Type>, obwohl ein VHDL Subtype kein Type ist. Dadurch wird es
+einfacher gleichzeitig mit Typen oder Subtypen zu arbeiten.
+
+Typen (und Subtypen) sind <Declaration>s. Viele dieser Deklarationen (vor
+allem Subtypen) sind anonym und sind in keinem <Scope> aufgelistet.
+
+Die Einschränkungen, die Subtypen dem Wertebereich eines Objektes
+auferlegen, werden vom Parser zwar ermittelt, bleiben aber ansonsten
+völlig unberücksichtigt. Entsprechende Überprüfungen (bei
+Arrayindizierungen oder sogar bei jeder Rechenoperation) können im
+allgemeinen Fall erst zur Laufzeit des Programms durchgeführt werden
+und müssen daher vom Backend implementiert werden\footnote{Oder auch
+nicht, um akzeptable Performance zu erreichen.}
+
+
+\smallskip
+\begin{ndesc}{\b{Type} : Declaration : PosNode : Node}{}
+ Die Basis der Knotentypenhierarchie für VHDL Typen. Knoten für Subtypen
+  werden auch von <Type> abgeleitet.
+
+\begin{desc}{Type \b{get_base}();}
+      Ermittelt den Basistyp dieses <Type>s. Siehe <SubType>.
+     \end{desc}
+    
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Constraint} : PosNode : Node}{}
+ Die Basis für die Einschränkungen eines <SubType>s.
+
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{Range} : Constraint : PosNode : Node}{}
+
+\begin{ndesc}{enum \b{RangeDirection}}{}
+Die Richtung eines Bereichs.
+  \shortdesc{\b{DirectionUp}}
+  \shortdesc{\b{DirectionDown}}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ExplicitRange} : Range : Constraint : PosNode : Node}{}
+ \shortdesc{"RangeDirection" \b{dir};}
+ \shortdesc{Expr \b{first};}
+ \begin{desc}{Expr \b{last};}
+ Die Grenzen dieser <Range>. Die Typen der Ausdrücke
+	  passen zu dem <SubType>, der diesen <Constraint> enthält.
+	  <first> ist die Grenze, die im VHDL-Text links neben "to"
+	  oder "downto" steht, <last> steht rechts davon.
+	
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ArrayRange} : Range : Constraint : PosNode : Node}{}
+ \shortdesc{Type \b{type};}
+ \shortdesc{Object \b{array};}
+ \shortdesc{"int" \b{index};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{ArrayAttr_RANGE} : ArrayRange : Range : Constraint : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{ArrayAttr_REVERSE_RANGE} : ArrayRange : Range : Constraint : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{PreIndexConstraint} : Constraint : PosNode : Node}{\ \internal}
+
+
+ \shortdesc{PreIndexConstraint \b{next};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{PreIndexRangeConstraint} : PreIndexConstraint : Constraint : \dots}{\ \internal}
+
+
+ \shortdesc{Range \b{range};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{PreIndexSubtypeConstraint} : PreIndexConstraint : Constraint : \dots}{\ \internal}
+
+
+ \shortdesc{Type \b{type};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{IndexConstraint} : Constraint : PosNode : Node}{}
+ Ein <IndexConstraint> legt den <SubType> für einen Arrayindex fest. 
+ \begin{desc}{IndexConstraint \b{next};}
+ Zeigt auf das nächsten <IndexConstraint>. Die Liste ist parallel
+      zu der Indexliste des Arraytyps zu dem dieser <IndexConstraint>
+      gehört.
+    
+ \end{desc}
+ \begin{desc}{Type \b{type};}
+ Der <SubType> für diesen Index. Dieser <SubType> hat immer
+      eine <Range>, der die Indexgrenzen festlegt.
+    
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{IncompleteType} : Type : Declaration : PosNode : Node}{\ \internal}
+ Alle unfertigen Typen müssen noch im selben <Scope> 
+komplettiert werden, daher tauchen sie im endgültigen Graphen nicht auf.
+
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SubType} : Type : Declaration : PosNode : Node}{}
+ \begin{desc}{Type \b{base};}
+ Der unmittelbare Basistype dieses <Subtype>. <base> kann ein
+	  weiterer <SubType> sein. Der endgültige Basistyp kann mit
+	  <get_base> (siehe <Type>) ermittelt werden.
+	
+ \end{desc}
+ \begin{desc}{Constraint \b{constraint};}
+ Die Einschränkungen für diesen <SubType>. Entweder eine
+	  <Range> (für skalare Basistypen) oder eine
+	  <IndexConstraint> Liste (für Arrays).
+	
+ \end{desc}
+ \begin{desc}{Name \b{resol_func};}
+ Noch nicht realisiert.
+	
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{AccessType} : Type : Declaration : PosNode : Node}{}
+ \shortdesc{Type \b{designated};}
+\end{ndesc}
+
+ Die grundlegenden Typen werden gemäß der Einteilung im <LRM> durch
+  die folgenden Knotentypen klassifiziert.
+
+\smallskip
+\shortndesc{\b{ScalarType} : Type : Declaration : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{NumericType} : ScalarType : Type : Declaration : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{IntegerType} : NumericType : ScalarType : Type : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{FloatingType} : NumericType : ScalarType : Type : \dots}{}
+
+
+ 
+  \bigskip
+  Die implizite Definition von <universal integer> und <universal
+  real> Typen wird an passender Stelle (irgenwo im "package standard")
+  explizit in den Graphen aufgenommen. 
+
+\smallskip
+\shortndesc{\b{UniversalInteger} : IntegerType : NumericType : ScalarType : Type : \dots}{}
+
+\smallskip
+\shortndesc{\b{UniversalReal} : FloatingType : NumericType : ScalarType : Type : \dots}{}
+
+\smallskip
+\begin{ndesc}{\b{PhysicalType} : NumericType : ScalarType : Type : Declaration : PosNode : Node}{}
+ Ein <PhysicalType> listet einfach alle seine definierten 
+  Einheiten auf.
+
+ \begin{desc}{PhysicalUnit \b{first};}
+ Die erste <PhysicalUnit> dieses Typs. 
+ \end{desc}
+ \begin{desc}{SubType \b{declaring_subtype};}
+ Der <SubType>, der den Namen dieses Typen hat. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{PhysicalUnit} : Declaration : PosNode : Node}{}
+ Jede Einheit eines <PhysicalType> wird als <Declaration> im
+  <Scope> des Typs aufgenommen, um sie anhand ihres Namens finden
+  zu können.
+
+ \begin{desc}{PhysicalType \b{type};}
+ Zeigt auf den zugehörigen <PhysicalType>.
+ \end{desc}
+ \begin{desc}{PhysicalLiteralRef \b{value};}
+ Der Wert dieser Einheit, ausgedrückt durch eine andere <PhysicalUnit>
+      des zugehörigen Typs. Die grundlegende Einheit hat $<value> == NULL$.
+    
+ \end{desc}
+ \begin{desc}{PhysicalUnit \b{next};}
+ Die nächste Einheit des zugehörigen Typs. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{EnumType} : ScalarType : Type : Declaration : PosNode : Node}{}
+ Ein <EnumType> listet alle seine Elemente auf.
+ \shortdesc{EnumLiteral \b{first};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{EnumLiteral} : Declaration : PosNode : Node}{}
+ Es können mehrer <EnumLiterals> mit der gleichen <id> in einem
+  <Scope> existieren. Sie werden an ihrem <EnumType> unterschieden.
+
+ \shortdesc{EnumType \b{type};}
+ \shortdesc{EnumLiteral \b{next};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{CompositeType} : Type : Declaration : PosNode : Node}{}
+ Die Basis für Array und Records. 
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ArrayType} : CompositeType : Type : Declaration : PosNode : Node}{}
+ Ein <ArrayType> beschreibt immer ein <unconstraint array>.
+  Die Beschränkungen der Indices wird durch einen <SubType> diese
+  Typs dargestellt.
+
+ \begin{desc}{IndexType \b{first_index};}
+ Die Liste der unbeschränkten Indextypen. Der <SubType> eines
+          <ArrayType>s hat als Beschränkung eine parallele Liste
+          von <IndexConstraints>. 
+ \end{desc}
+ \begin{desc}{Type \b{element_type};}
+ Der Typ der Arrayelemente. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{IndexType} : PosNode : Node}{}
+ Beschreibt den Typ eines einzelnen Indices. 
+ \shortdesc{IndexType \b{next};}
+ \shortdesc{Type \b{index_type};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SubarrayType} : ArrayType : CompositeType : Type : Declaration : PosNode : Node}{}
+ \shortdesc{ArrayType \b{complete_type};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{RecordType} : CompositeType : Type : Declaration : PosNode : Node}{}
+ Ein <RecordType> enthält einfach eine Liste aller seiner
+  Elemente.
+
+ \shortdesc{RecordElement \b{first_element};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{RecordElement} : PosNode : Node}{}
+ Ein einzelnes Element eines <RecordType>.
+
+ \shortdesc{RecordElement \b{next};}
+ \begin{desc}{"Id" \b{id};}
+ Der Name dieses Elements. 
+ \end{desc}
+ \begin{desc}{Type \b{type};}
+ Der Typ. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{FileType} : Type : Declaration : PosNode : Node}{}
+ \shortdesc{Type \b{content_type};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{DummyType} : Type : Declaration : PosNode : Node}{}
+ Für noch nicht implementierte Typen. Wird irgendwann verschwinden. 
+\end{ndesc}
+
+ \subsection{Konstanten, Variablen und Signale}
+
+\smallskip
+\begin{ndesc}{\b{Object} : Declaration : PosNode : Node}{}
+ Die Basis für Variablen, Konstanten, Signale, Files und Aliasse.
+
+ \begin{desc}{Type \b{type};}
+ Der <Type> oder <SubType> dieses Objekts. 
+ \end{desc}
+ \begin{desc}{Expr \b{initial_value};}
+ Der Initialisierungswert, wenn vorhanden. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Variable} : Object : Declaration : PosNode : Node}{}
+ \begin{desc}{"bool" \b{shared};}
+ "true", wenn dies eine <shared variable> ist. Noch nicht relisiert. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{Constant} : Object : Declaration : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{ConstantBody} : Declaration : PosNode : Node}{}
+ Liefert den Initialisierungswert für eine Konstante nach, falls sie
+  noch nicht bei ihrer Deklaration initialisiert wurde.
+
+ \begin{desc}{Constant \b{decl};}
+ Die Konstante, die verspätet initialisiert wird. 
+ \end{desc}
+ \shortdesc{Expr \b{initial_value};}
+\end{ndesc}
+
+\begin{ndesc}{enum \b{SignalKind}}{}
+   Die möglichen Varianten eines Signals.
+   \shortdesc{\b{SigKind_None}}
+   \shortdesc{\b{SigKind_Bus}}
+   \shortdesc{\b{SigKind_Register}}
+ \end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Signal} : Object : Declaration : PosNode : Node}{}
+ \shortdesc{"SignalKind" \b{signal_kind};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{GuardSignal} : Signal : Object : Declaration : PosNode : Node}{}
+ Ein implizites <guard signal>. Noch nicht realisiert.
+
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{Alias} : Object : Declaration : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{File} : Object : Declaration : PosNode : Node}{}
+ Der Dateiname ist in "initial_value".
+
+ \shortdesc{Expr \b{open_mode};}
+\end{ndesc}
+
+ \section{Funktionen und Prozeduren}
+
+Die Deklaration einer Funktion oder Prozedur wird im Graphen immer
+durch zwei Teile dargestellt: die Deklaration der Schnittstelle mit
+einem <Function> oder <Procedure> Knoten und die Deklaration des
+Funktions- oder Prozedurrumpfes, der die Anweisungen enthält, mit
+einem <SubprogramBody>. Diese beiden Teile sind über den <continued>
+Zeiger des <SubprogramBody> zusammengehängt. 
+\smallskip
+\begin{ndesc}{\b{Subprogram} : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+ Enthält die Parameterliste einer Funktion oder einer
+  Prozedur.
+
+ \shortdesc{Interface \b{first_formal};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{Procedure} : Subprogram : Scope : AttributedDeclaration : Declaration : \dots}{}
+
+
+\smallskip
+\begin{ndesc}{\b{Function} : Subprogram : Scope : AttributedDeclaration : Declaration : \dots}{}
+
+
+ \shortdesc{"bool" \b{pure};}
+ \shortdesc{Type \b{return_type};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{PredefOp} : Function : Subprogram : Scope : \dots}{}
+
+  Die Beschreibung einer vordefinierten Funktion.
+  Zu diesen Funktionen gibt es keinen <SubprogramBody>.
+
+\end{ndesc}
+
+\begin{ndesc}{enum \b{ObjectClass}}{}
+  Die verschiedenen Arten von Objekten.
+   \shortdesc{\b{ObjClass_None}}
+   \shortdesc{\b{ObjClass_Signal}}
+   \shortdesc{\b{ObjClass_Variable}}
+   \shortdesc{\b{ObjClass_Constant}}
+   \shortdesc{\b{ObjClass_File}}
+ \end{ndesc}
+
+ \begin{ndesc}{enum \b{Mode}}{}
+ Die verschiedenen Modi eines Parameters.
+  \shortdesc{\b{Mode_None}}
+  \shortdesc{\b{Mode_In}}
+  \shortdesc{\b{Mode_Out}}
+  \shortdesc{\b{Mode_InOut}}
+  \shortdesc{\b{Mode_Buffer}}
+  \shortdesc{\b{Mode_Linkage}}
+ \end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Interface} : Object : Declaration : PosNode : Node}{}
+ Ein Parameter eines <Subprogram>s.
+
+ \begin{desc}{Interface \b{next_element};}
+ Der nächste Parameter in der Liste. 
+ \end{desc}
+ \shortdesc{"ObjectClass" \b{object_class};}
+ \shortdesc{"Mode" \b{mode};}
+ \shortdesc{"bool" \b{buffer};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SubprogramBody} : Scope : AttributedDeclaration : Declaration : \dots}{}
+
+  Die Anweisungen zu einem <Subprogram>. Der <continued>-Zeiger
+  dieses <Scopes> zeigt auf die zugehörige <Subprogram>-Deklaration.
+
+ \shortdesc{Statement \b{stats};}
+\end{ndesc}
+
+ \section{Ausdrücke}
+
+\smallskip
+\begin{ndesc}{\b{Expr} : PosNode : Node}{}
+ Die Basis für alle Ausdrucksknoten.
+
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{UnresolvedName} : Expr : PosNode : Node}{\ \internal}
+
+ \shortdesc{Name \b{name};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{FunctionCall} : Expr : PosNode : Node}{}
+ Ein Funktionsaufruf.
+
+ \begin{desc}{Function \b{func};}
+ Die aufgerufene Funktion. 
+ \end{desc}
+ \begin{desc}{Association \b{first_actual};}
+ Ein Ausdruck für jeden Parameter der Funktion. Diese
+          Ausdrücke werden nicht in der Reihenfolge der Parameter der Funktion
+          aufgelistet, sondern in der Reihenfolge, in der sie im VHDL-Text
+          stehen. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ProcedureCall} : Expr : PosNode : Node}{\ \internal}
+
+ \shortdesc{Procedure \b{proc};}
+ \shortdesc{Association \b{first_actual};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{AmbgCall} : Expr : PosNode : Node}{\ \internal}
+
+ \shortdesc{NamedAssocElem \b{first_actual};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{GenAssocElem} : PosNode : Node}{\ \internal}
+
+ \shortdesc{GenAssocElem \b{next};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{NamedAssocElem} : GenAssocElem : PosNode : Node}{\ \internal}
+
+ \shortdesc{Name \b{formal};}
+ \shortdesc{Expr \b{actual};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SubtypeAssocElem} : GenAssocElem : PosNode : Node}{\ \internal}
+
+ \shortdesc{Type \b{type};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{RangeAssocElem} : GenAssocElem : PosNode : Node}{\ \internal}
+
+ \shortdesc{Range \b{range};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Association} : Node}{}
+ Eine Verbindung zwischen einem Schnittstellenobjekt und einem Ausdruck.
+
+ \shortdesc{Association \b{next};}
+ \begin{desc}{Interface \b{formal};}
+ Die Deklaration des Schnittstellenobjekts. 
+ \end{desc}
+ \begin{desc}{Declaration \b{formal_conversion};}
+ Noch nicht realisiert. 
+ \end{desc}
+ \begin{desc}{Expr \b{actual};}
+ Der Ausdruck, der <formal> zugeordnet wird. 
+ \end{desc}
+ \begin{desc}{Declaration \b{actual_conversion};}
+ noch nicht realisiert. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{TypeConversion} : Expr : PosNode : Node}{}
+ Eine explizite Typumwandlung. 
+ \begin{desc}{Type \b{target_type};}
+ Der Typ, in dem umgewandelt werden soll.
+ \end{desc}
+ \begin{desc}{Expr \b{expression};}
+ Der Ausdruck, der umgewandelt werden soll.
+	  Der Typ dieses Ausdrucks und <target_type> sind
+	  <closely related>. Eine Umwandlung ist also möglich.
+	  (Wird noch nicht überprüft)
+	
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{QualifiedExpr} : Expr : PosNode : Node}{}
+ Ein freundlicher und zutreffender Hinweis auf den Typ eines Ausdrucks. 
+ \begin{desc}{Type \b{type};}
+ Der Typ von <expression>. 
+ \end{desc}
+ \begin{desc}{Expr \b{expression};}
+ Dieser Ausdruck hat den Typ <type>. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{NewExpr} : Expr : PosNode : Node}{}
+ \shortdesc{Type \b{type};}
+ \shortdesc{Expr \b{initial_value};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{PrimaryExpr} : Expr : PosNode : Node}{}
+ Die Basis für alle Ausdrücke, die kein Funktionsaufruf sind
+ (Blätter des Ausdruckbaums).
+
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{OpenExpr} : PrimaryExpr : Expr : PosNode : Node}{}
+\begin{ndesc}{typedef char *\b{Literal}}{}
+   Der Typ eines <abstract literals>. Der Parser selbst wandelt diese
+   Konstanten nicht in numerische Typen (z.B. "long" oder "double"), um das
+   Backend nicht auf eine Representation festzunageln.
+ \end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{LiteralRef} : PrimaryExpr : Expr : PosNode : Node}{}
+ Eine 'literarische' Konstante. 
+ \begin{desc}{"Literal" \b{value};}
+ Der Wert der Konstante als String. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{AmbgArrayLitRef} : PrimaryExpr : Expr : PosNode : Node}{\ \internal}
+
+ \shortdesc{"Literal" \b{value};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ArrayLiteralRef} : PrimaryExpr : Expr : PosNode : Node}{}
+ Eine 'literarische' Arraykonstante (<bit string literal>). 
+ \begin{desc}{"Literal" \b{value};}
+ Der Wert der Konstanten als String. 
+ \end{desc}
+ \begin{desc}{Type \b{type};}
+ Zusätzlich zum Wert wird noch der Typ der Arraykonstanten angegeben.
+	  Dieser Typ beinhaltet in einem <SubType> auch die Ausdehnung dieses
+	  Arrays. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{PhysicalLiteralRef} : LiteralRef : PrimaryExpr : Expr : PosNode : Node}{}
+ Eine physikalische Konstante. 
+ \begin{desc}{PhysicalUnit \b{unit};}
+ Die Einheit dieser Konstanten. Der Zahlenwert steht
+	  <value> der <LiteralRef>-Basis. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{AmbgNullExpr} : \dots}{}
+
+\smallskip
+\begin{ndesc}{\b{NullExpr} : PrimaryExpr : Expr : PosNode : Node}{}
+ \shortdesc{Type \b{type};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ObjectRef} : PrimaryExpr : Expr : PosNode : Node}{}
+ Die Basis für Zugriffe auf <Object>s.
+  Ein <ObjectRef> stellt einige Funktionen zur Verfügung, die von
+  den konkreten Zugriffen (auf Variablen, Arrayelemente, \dots)
+  passend implementiert werden.
+
+\begin{desc}{virtual ObjectClass \b{get_class}();}
+	  Ermittelt die Klasse des Objekts, auf das zugegriffen wird.
+	 \end{desc}
+	 \begin{desc}{virtual ObjectClass \b{get_mode}();}
+	  Ermittelt den Modus.
+	 \end{desc}
+	 \begin{desc}{virtual ObjectClass \b{get_type}();}
+	  Ermittelt den Typ.
+	 \end{desc}
+	 \begin{desc}{virtual ObjectClass \b{is_constant}();}
+	   Äquivalent zu "get_class() == ObjClass_Constant".
+	 \end{desc}
+	 \begin{desc}{virtual ObjectClass \b{is_variable}();}
+	   Äquivalent zu "get_class() == ObjClass_Variable".
+	 \end{desc}
+	 \begin{desc}{virtual ObjectClass \b{is_signal}();}
+	   Äquivalent zu "get_class() == ObjClass_Signal".
+	 \end{desc}
+	 \begin{desc}{virtual ObjectClass \b{is_file}();}
+	   Äquivalent zu "get_class() == ObjClass_File".
+	 \end{desc}
+	 \begin{desc}{virtual ObjectClass \b{is_readable}();}
+	  Ermittelt, ob das Objekt gelesen werden kann.
+	 \end{desc}
+	 \begin{desc}{virtual ObjectClass \b{is_writeable}();}
+	  Ermittelt, ob das Objekt geschrieben werden kann.
+	 \end{desc}
+	
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SimpleObjectRef} : ObjectRef : PrimaryExpr : Expr : PosNode : Node}{}
+ Ein Zugriff auf ein 'normales' Objekt (kein Array- oder Recordelement).
+
+ \begin{desc}{Object \b{object};}
+ Das Objekt höchstselbst. 
+ \end{desc}
+ \begin{desc}{Name \b{name};}
+ Der Name, der im VHDL-Text stand. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{AccessObjectRef} : ObjectRef : PrimaryExpr : Expr : PosNode : Node}{}
+ Ein Zugriff auf ein Objekt durch ein <access value>.
+
+ \begin{desc}{Expr \b{access};}
+ Ein Ausdruck für den <acces value>. 
+ \end{desc}
+ \shortdesc{Type \b{accessed_type};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{RecordObjectRef} : ObjectRef : PrimaryExpr : Expr : PosNode : Node}{}
+ Ein Zugriff auf ein Recordelement.
+
+ \begin{desc}{Expr \b{record};}
+ Das Recordobjekt als ganzes. 
+ \end{desc}
+ \begin{desc}{RecordType \b{record_type};}
+ Der Typ von <record>. 
+ \end{desc}
+ \begin{desc}{RecordElement \b{element};}
+ Das Element des Records, auf das zugegriffen wird. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{GenericArrayObjectRef} : ObjectRef : PrimaryExpr : Expr : \dots}{}
+ Die Basis für einen Zugriff auf einen Teil eines Arrays.
+
+ \begin{desc}{Expr \b{array};}
+ Das Array als ganzes. 
+ \end{desc}
+ \begin{desc}{ArrayType \b{array_type};}
+ Der Typ dieses Arrays. Er könnte theoretisch auch
+          aus <array> bestimmt werden. Das ist aber nicht ganz trivial.
+	
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ArrayObjectRef} : GenericArrayObjectRef : ObjectRef : \dots}{}
+ Ein Zugriff auf ein Arrayelement.
+
+ \begin{desc}{IndexValue \b{first_index};}
+ Ein Wert für jeden Index des Arrays. Die Liste ist parallel zur
+	  Indexliste von <array_type>.
+	
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{IndexValue} : PosNode : Node}{}
+ \shortdesc{IndexValue \b{next};}
+ \shortdesc{Expr \b{index};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SliceObjectRef} : GenericArrayObjectRef : ObjectRef : \dots}{}
+ Ein Zugriff auf eine Scheibe eines Arrays.
+
+ \begin{desc}{Type \b{slice};}
+ Der <Range> dieses Subtypes gibt den Bereich der
+	  Scheibe an.
+	
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{EnumLitRef} : PrimaryExpr : Expr : PosNode : Node}{}
+ Ein Zugriff aif eine Enumerationskonstante. 
+ \begin{desc}{EnumLiteral \b{value};}
+ Die Konstante selbst. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{AmbgEnumLitRef} : PrimaryExpr : Expr : PosNode : Node}{\ \internal}
+
+\smallskip
+\begin{ndesc}{\b{AttrSignalRef} : ObjectRef : PrimaryExpr : Expr : PosNode : Node}{}
+ Ein Zugriff auf ein eingebautes Attribut eines Signals, das
+  ein Signal als Wert hat.
+  Konkrete Attribute werden durch abgeleitete Knoten unterschieden.
+
+ \begin{desc}{Type \b{attr_type};}
+ Der Type des Attributes. 
+ \end{desc}
+ \begin{desc}{ObjectRef \b{signal};}
+ Das Signal, auf das sich dieses Attribut bezieht. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Attr_DELAYED} : AttrSignalRef : ObjectRef : \dots}{}
+
+
+ \begin{desc}{Expr \b{delay};}
+ Der Parameter des "DELAY" Attributes, oder "NULL" wenn keiner
+	  angegeben wurde. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Attr_STABLE} : AttrSignalRef : ObjectRef : \dots}{}
+
+
+ \begin{desc}{Expr \b{duration};}
+ Der Parameter des "STABLE" Attributes, oder "NULL" wenn keiner
+	  angegeben wurde. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Attr_QUIET} : AttrSignalRef : ObjectRef : \dots}{}
+
+
+ \begin{desc}{Expr \b{duration};}
+ Der Parameter des "QUIT" Attributes, oder "NULL" wenn keiner
+	  angegeben wurde. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{Attr_TRANSACTION} : AttrSignalRef : ObjectRef : \dots}{}
+
+
+\smallskip
+\begin{ndesc}{\b{AttrFunctionCall} : Expr : PosNode : Node}{}
+ Ein Aufruf eines Attributes, das eine Funktion darstellt.
+
+ \begin{desc}{Type \b{attr_type};}
+ Der Typ dieses Attributes (der Rückgabetyp der Funktion). 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{AttrSigFunc} : AttrFunctionCall : Expr : PosNode : Node}{}
+ Ein Aufruf eines Attributes, das eine Funktion darstellt und sich auf ein
+  Signal bezieht.
+
+ \begin{desc}{ObjectRef \b{signal};}
+ Ein Zugriff auf das Signal. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{Attr_EVENT} : AttrSigFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_ACTIVE} : AttrSigFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_LAST_EVENT} : AttrSigFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_LAST_ACTIVE} : AttrSigFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_LAST_VALUE} : AttrSigFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_DRIVING} : AttrSigFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_DRIVING_VALUE} : AttrSigFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\begin{ndesc}{\b{AttrTypeFunc} : AttrFunctionCall : Expr : PosNode : Node}{}
+ Ein Aufruf eines Aggregates, das eine Funktion darstellt und sich auf einen
+  Typen bezieht.
+
+ \begin{desc}{Type \b{prefix};}
+ Der Prefix des Attributes. 
+ \end{desc}
+ \begin{desc}{Expr \b{argument};}
+ Das Argument. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{Attr_LEFT} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_RIGHT} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_LOW} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_HIGH} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_ASCENDING} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_IMAGE} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_VALUE} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_POS} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_VAL} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_SUCC} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_PRED} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_LEFTOF} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\shortndesc{\b{Attr_RIGHTOF} : AttrTypeFunc : AttrFunctionCall : \dots}{}
+
+
+\smallskip
+\begin{ndesc}{\b{ArrayAttr} : Expr : PosNode : Node}{}
+ \shortdesc{Type \b{attr_type};}
+ \shortdesc{Object \b{array};}
+ \shortdesc{"int" \b{index};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{ArrayAttr_LEFT} : ArrayAttr : Expr : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{ArrayAttr_RIGHT} : ArrayAttr : Expr : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{ArrayAttr_HIGH} : ArrayAttr : Expr : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{ArrayAttr_LOW} : ArrayAttr : Expr : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{ArrayAttr_ASCENDING} : ArrayAttr : Expr : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{ArrayAttr_LENGTH} : ArrayAttr : Expr : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{AttributeSpec} : PosNode : Node}{}
+ \shortdesc{"Id" \b{attr_desig};}
+ \shortdesc{EntitySpec \b{entities};}
+ \shortdesc{Expr \b{value};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{EntitySpec} : PosNode : Node}{}
+ \shortdesc{EntityNameList \b{names};}
+ \shortdesc{"int" \b{entity_class};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{EntityNameList} : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{EntityNameList_Ids} : EntityNameList : PosNode : Node}{}
+ \shortdesc{IdList \b{ids};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{EntityNameList_ALL} : EntityNameList : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{EntityNameList_OTHERS} : EntityNameList : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{Aggregate} : Expr : PosNode : Node}{}
+ \shortdesc{Type \b{type};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{RecordAggregate} : Aggregate : Expr : PosNode : Node}{}
+ \shortdesc{RecAggrAssoc \b{first_assoc};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{RecAggrAssoc} : PosNode : Node}{}
+ \shortdesc{RecAggrAssoc \b{next};}
+ \shortdesc{RecordElement \b{elem};}
+ \shortdesc{Expr \b{actual};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ArrayAggregate} : Aggregate : Expr : PosNode : Node}{}
+ \shortdesc{ArrAggrAssoc \b{first_assoc};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ArrAggrAssoc} : PosNode : Node}{}
+ \shortdesc{ArrAggrAssoc \b{next};}
+ \shortdesc{Expr \b{actual};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SingleArrAggrAssoc} : ArrAggrAssoc : PosNode : Node}{}
+ \shortdesc{Expr \b{index};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{RangeArrAggrAssoc} : ArrAggrAssoc : PosNode : Node}{}
+ \shortdesc{Range \b{range};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{SliceArrAggrAssoc} : RangeArrAggrAssoc : ArrAggrAssoc : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{OthersArrAggrAssoc} : ArrAggrAssoc : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{AmbgAggregate} : Expr : PosNode : Node}{}
+ \shortdesc{ElemAssoc \b{first_assoc};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{ArtificialAmbgAggregate} : AmbgAggregate : Expr : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{ElemAssoc} : PosNode : Node}{}
+ \shortdesc{ElemAssoc \b{next};}
+ \shortdesc{Choice \b{first_choice};}
+ \shortdesc{Expr \b{actual};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Choice} : PosNode : Node}{}
+ \shortdesc{Choice \b{next};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ExprChoice} : Choice : PosNode : Node}{}
+ \shortdesc{Expr \b{expr};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{RangeChoice} : Choice : PosNode : Node}{}
+ \shortdesc{GenAssocElem \b{range};}
+ \shortdesc{"bool" \b{actual_is_slice};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{NamedChoice} : Choice : PosNode : Node}{}
+ \shortdesc{Name \b{name};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{OthersChoice} : Choice : PosNode : Node}{}
+ \section{Sequentielle Anweisungen}
+
+Die sequentiellen Anweisungen, die hintereinander ausgeführt werden
+sollen, werden zu einer Liste zusammengehängt. Zeiger auf eine
+Anweisung, bei denen in der Beschreibung von mehreren Anweisungen die
+Rede ist, meinen die komplette Liste.
+
+
+\smallskip
+\begin{ndesc}{\b{Label} : Declaration : PosNode : Node}{}
+Die Namen von benannten Anweisungen (<labels>) werden als <Declaration>s
+ in den zu der Anweisung gehörenden <Scope> aufgenommen.
+
+ \begin{desc}{Statement \b{stat};}
+ Die Anweisung, die diesen Namen trägt. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Statement} : PosNode : Node}{}
+ Die Basis für die verschiedenen Anweisungen. 
+ \begin{desc}{Label \b{label};}
+ Falls diese Anweisung einen Namen hat: hier ist er. Falls nicht,
+	  ist "<label> == NULL". 
+ \end{desc}
+ \begin{desc}{Statement \b{next};}
+ Die nächste Anweisung. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{DummyStat} : Statement : PosNode : Node}{}
+ Für unimplementierte Anweisungen. Verschwindet irgendwann. 
+
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ReturnStat} : Statement : PosNode : Node}{}
+ Eine "return"-Anweisung.
+
+ \begin{desc}{Expr \b{value};}
+ Der Wert, der zurückgegeben werden soll oder "NULL", falls
+	  diese Anweisung zu einer Prozedur gehört und nicht zu einer
+	  Funktion. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{VarAssignment} : Statement : PosNode : Node}{}
+ Eine Variablenzuweisung.
+
+ \begin{desc}{Expr \b{target};}
+ Das Ding, an das zugewiesen werden soll. 
+ \end{desc}
+ \begin{desc}{Expr \b{value};}
+ Der neue Wert. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{IfStat} : Statement : PosNode : Node}{}
+ Eine "if"-Anweisung.
+
+ \begin{desc}{Expr \b{cond};}
+ Die Bedingung. Der Ausdruck ist immer vom Typ "bool". 
+ \end{desc}
+ \begin{desc}{Statement \b{then_stats};}
+ Die Anweisungen, die ausgeführt werden sollen, wenn
+	  "<cond> == true" ist. 
+ \end{desc}
+ \begin{desc}{Statement \b{else_stats};}
+ Die Anweisungen, die ausgeführt werden sollen, wenn
+	  "<cond> != true" ist. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{CaseStat} : Statement : PosNode : Node}{}
+ \shortdesc{Expr \b{switch_expr};}
+ \shortdesc{CaseAlternative \b{first_alternative};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{CaseAlternative} : PosNode : Node}{}
+ \shortdesc{CaseAlternative \b{next};}
+ \shortdesc{Choice \b{first_choice};}
+ \shortdesc{Statement \b{stats};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{LoopStat} : Statement : PosNode : Node}{}
+ Eine Schleife ist ein Gültigkeitsbereich und gleichzeitig eine
+  Anweisung. Mangels Mehrfachvererbung wird der <Scope> einer Schleife
+  durch einen separaten <LoopScope> Knoten realisiert.
+
+ \begin{desc}{LoopScope \b{scope};}
+ Der zugehörige <Scope>. 
+ \end{desc}
+ \begin{desc}{IterationScheme \b{iteration_scheme};}
+ Das Schleifenschema. 
+ \end{desc}
+ \begin{desc}{Statement \b{stats};}
+ Die abhängigen Anweisungen. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{LoopScope} : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+ Der zu einer Schleife gehörende <Scope>.
+
+ \begin{desc}{LoopStat \b{loop};}
+ Die zugehörige Schleifenanweisung. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{IterationScheme} : PosNode : Node}{}
+ Die Basis für alle Schleifenschema. 
+
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{WhileScheme} : IterationScheme : PosNode : Node}{}
+ Ein "while"-Schema.
+
+ \begin{desc}{Expr \b{condition};}
+ Die Bedingung. Solange "<condition> == true", sollen
+	  die abhängigen Anweisungen ausgeführt werden. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ForScheme} : IterationScheme : PosNode : Node}{}
+ Ein "for"-Schema. 
+ \begin{desc}{Object \b{var};}
+ Die Laufvariable. Die Deklaration von <var> steht im
+	  <LoopScope> dieser Schleife. 
+ \end{desc}
+ \begin{desc}{Range \b{range};}
+ Der Bereich, über den <var> laufen soll. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{PreForScheme} : IterationScheme : PosNode : Node}{\ \internal}
+
+
+ \shortdesc{"Id" \b{var};}
+ \shortdesc{PreIndexConstraint \b{range};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{LoopControlStat} : Statement : PosNode : Node}{}
+ Die Basis für die "exit"- und "next"-Anweisungen.
+
+ \begin{desc}{LoopStat \b{loop};}
+ Die Schleife, auf die sich die Anweisung bezieht. 
+ \end{desc}
+ \begin{desc}{Expr \b{when};}
+ Die Bedingung für die tatsächliche Ausführung der Anweisung. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{NextStat} : LoopControlStat : Statement : PosNode : Node}{}
+ Eine "next"-Anweisung. 
+
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ExitStat} : LoopControlStat : Statement : PosNode : Node}{}
+ Eine "exit"-Anweisung.
+
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{NullStat} : Statement : PosNode : Node}{}
+ Eine "null"-Anweisung.
+
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ProcedureCallStat} : Statement : PosNode : Node}{}
+ Ein Prozeduraufruf. Analog zu einem <FunctionCall>, siehe auch dort.
+
+ \begin{desc}{Procedure \b{proc};}
+ Die Prozedur, die aufgerufen werden soll. 
+ \end{desc}
+ \begin{desc}{Association \b{first_actual};}
+ Ein Ausdruck für jeden Parameter der Prozedur. Diese
+          Ausdrücke werden nicht in der Reihenfolge der Parameter der Funktion
+          aufgelistet, sondern in der Reihenfolge, in der sie im VHDL-Text
+          stehen. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{WaitStat} : Statement : PosNode : Node}{}
+ Ein "wait"-Statement.
+
+ \begin{desc}{SignalList \b{first_sensitivity};}
+ Die Signale, auf die reagiert werden soll. 
+ \end{desc}
+ \shortdesc{Expr \b{condition};}
+ \shortdesc{Expr \b{timeout};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SignalList} : Node}{}
+ \shortdesc{ObjectRef \b{signal};}
+ \shortdesc{SignalList \b{next};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{WaveformElement} : Node}{}
+ Ein Teil einer Wellenform. 
+
+ \begin{desc}{Expr \b{value};}
+ Der Wert dieses Teils. 
+ \end{desc}
+ \begin{desc}{Expr \b{after};}
+ Die Zeit, bis es soweit ist. 
+ \end{desc}
+ \begin{desc}{WaveformElement \b{next};}
+ Das nächste Element der kompletten Wellenform. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{SignalAssignment} : Statement : PosNode : Node}{}
+ Eine Signalzuweisung.
+
+ \begin{desc}{Expr \b{target};}
+ Das Signal, an das zugewiesen wird. 
+ \end{desc}
+ \shortdesc{"bool" \b{transport};}
+ \begin{desc}{WaveformElement \b{first_wave};}
+ Die Wellenform. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{AssertStat} : Statement : PosNode : Node}{}
+ \shortdesc{Expr \b{condition};}
+ \shortdesc{Expr \b{report};}
+ \shortdesc{Expr \b{severity};}
+\end{ndesc}
+
+ \section {Parallele Anweisungen} 
+
+Parellele Anweisungen sind -- wie sequentielle Anweisungen -- zu einer
+Liste zusammengehängt.
+
+\smallskip
+\begin{ndesc}{\b{ConcurrentStatement} : Scope : AttributedDeclaration : \dots}{}
+ Die Basis für die parallelen Anweisungen. <ConcurrentStatement> sind
+  von <Scope> abgeleitet, da einige von ihnen Deklarationen enthalten.
+
+ \begin{desc}{ConcurrentStatement \b{next_stat};}
+ Das nächste Statement in der Liste. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Process} : ConcurrentStatement : Scope : AttributedDeclaration : \dots}{}
+
+
+ \shortdesc{SignalList \b{sensitivities};}
+ \begin{desc}{Statement \b{stats};}
+ Die sequentiellen Anweisungen innerhalb des Prozesses. 
+ \end{desc}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{CondalWaveform} : PosNode : Node}{\ \internal}
+
+
+ \shortdesc{WaveformElement \b{wave};}
+ \shortdesc{Expr \b{condition};}
+ \shortdesc{CondalWaveform \b{else_wave};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{CondalSignalAssign} : PosNode : Node}{\ \internal}
+
+
+ \shortdesc{Expr \b{target};}
+ \shortdesc{"bool" \b{transport};}
+ \shortdesc{CondalWaveform \b{wave};}
+\end{ndesc}
+
+ \section{Komponenten}
+
+
+\smallskip
+\begin{ndesc}{\b{Component} : ConcurrentStatement : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+ \shortdesc{Interface \b{first_generic};}
+ \shortdesc{Interface \b{first_port};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Block} : Component : ConcurrentStatement : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+ \shortdesc{ConcurrentStatement \b{stats};}
+ \shortdesc{ConfigSpec \b{specs};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{Entity} : Block : Component : ConcurrentStatement : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{Architecture} : Block : Component : ConcurrentStatement : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{BlockStat} : Block : Component : ConcurrentStatement : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+ \shortdesc{BindingIndic \b{binding};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ComponentInst} : ConcurrentStatement : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+ \shortdesc{BindingIndic \b{binding};}
+ \shortdesc{ConfigSpec \b{config};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ConfigSpec} : PosNode : Node}{}
+ \shortdesc{ComponentSpec \b{comps};}
+ \shortdesc{BindingIndic \b{binding};}
+ \shortdesc{ConfigSpec \b{next};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{ComponentSpec} : Node}{}
+ \shortdesc{InstList \b{ids};}
+ \shortdesc{Component \b{comp};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{InstList} : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{InstList_Ids} : InstList : PosNode : Node}{}
+ \shortdesc{IdList \b{ids};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{InstList_ALL} : InstList : PosNode : Node}{}
+\smallskip
+\shortndesc{\b{InstList_OTHERS} : InstList : PosNode : Node}{}
+\smallskip
+\begin{ndesc}{\b{BindingIndic} : Node}{}
+ \shortdesc{Component \b{unit};}
+ \shortdesc{Association \b{generic_assoc};}
+ \shortdesc{Association \b{port_assoc};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{IncrementalBindingIndic} : Node}{}
+ \shortdesc{Component \b{unit};}
+ \shortdesc{NamedAssocElem \b{generic_assoc};}
+ \shortdesc{NamedAssocElem \b{port_assoc};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{Configuration} : Component : ConcurrentStatement : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+ \shortdesc{Entity \b{entity};}
+ \shortdesc{BlockConfig \b{config};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{BaseConfig} : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+ \shortdesc{BaseConfig \b{next_config};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{BlockConfig} : BaseConfig : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+ \shortdesc{Block \b{block};}
+ \shortdesc{BaseConfig \b{configs};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{CompConfig} : BaseConfig : Scope : AttributedDeclaration : Declaration : PosNode : Node}{}
+ \shortdesc{ComponentSpec \b{comp_spec};}
+ \shortdesc{CompInstList \b{comps};}
+ \shortdesc{BindingIndic \b{binding};}
+ \shortdesc{BlockConfig \b{config};}
+\end{ndesc}
+
+\smallskip
+\begin{ndesc}{\b{CompInstList} : Node}{}
+ \shortdesc{CompInstList \b{link};}
+ \shortdesc{ComponentInst \b{inst};}
+\end{ndesc}
+
+\smallskip
+\shortndesc{\b{Dummy} : Node}{}
+\smallskip
+\shortndesc{\b{AssociationList} : Dummy : Node}{}

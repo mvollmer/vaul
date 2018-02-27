@@ -1,0 +1,12 @@
+install-progs += ctree 
+ depfiles += $(addsuffix .d, $(ctree-objs)) 
+ cleanfiles += $(addsuffix .o, $(ctree-objs)) ctree 
+ 
+ ifeq ($(shared-libs),yes)
+ ctree-local-libs := $(foreach l, $(filter $(local-libs), $(ctree-libs)), ../lib$l/lib$l.so)
+ else
+ ctree-local-libs := $(foreach l, $(filter $(local-libs), $(ctree-libs)), ../lib$l/lib$l.a)
+ endif
+ all: ctree
+ ctree: $(addsuffix .o, $(ctree-objs)) $(ctree-local-libs)
+	 $(CXX) $(LDFLAGS) $(ctree-LDFLAGS) -o $@ $^ $(target-libdirs) $(target-libs)

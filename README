@@ -1,0 +1,95 @@
+This is a snapshot of the "vaul" library.
+
+"Vaul" is cryptic for Vhdl Analyzer and Utility Library. It was written
+at the University of Dortmund, Department for Electrical Engineering, AG
+SIV, Heja BVB by Marius Vollmer <mvo@nt.e-technik.uni-dortmund.de> with
+guidance from Ludwig Schwoerer <ls@nt.e-technik.uni.dortmund.de>.
+
+The library can be used to parse and analyze arbitrary VHDL code.  The
+result is an abstract syntax graph, which is represented as a collection
+of C++ objects, tightly connected by pointers. All names used in the VHDL
+code have been resolved to their respective declarations (including
+overloaded function names) and types have been checked (excluding subtype
+constraints).
+
+The internal representation of the syntax graph is automatically read
+from and written to disk to implement the design library mechanisms of
+VHDL.
+
+It was written for a `selective VHDL to C compiler' that can translate a
+synchronous subset of VHDL to C. Nevertheless, it is the goal of this
+project to implement as much of VHDL as possible. The frontend should be
+a big help to a wide variety of tools, that have to understand VHDL. A
+few examples are: extraction of structural information, checking of
+design rules, (partial) translation into other languages or
+code-generation for a specific simulation kernel.
+
+* STATUS (and plea for help)
+
+This software is quite young and mostly untested. While it is used in a
+system for very fast simulation of image processing circuits, it is not
+very actively developed or maintained at the moment.
+
+Don't expect the frontend to work for you right out of the box. If it
+compiles at all, you are lucky. Many minor semantic checks are not done
+or the details are probably incorrect.
+
+So, we need your help! 
+
+If you get it to compile, please notify us of all changes you had to
+make. If you find incorrect behaviour of the analyzer, let us know.  In
+general, don't hesitate telling us what you think.
+
+But because we don't have the time or interest to address all the many,
+many small and big problems that will arise, please try to solve them
+yourself. Do tell us when you have fixed something, of course!
+
+Send your suggestions and patches to <msipc@nt.e-technik.uni-dortmund.de>.
+
+* CONTENTS
+
+libvaulutil/
+    This is a small library of misc. functions. Nothing specific
+    to VHDL.
+
+ctree/
+    This is a tool for converting the concise node descriptions
+    for the abstract syntax graph into C++ structs.
+
+libvaul/
+    This is the VHDL analyzer and design library manager. Included
+    are two sample applications: the little library maintainance
+    utility "vau" and the superficial translator from VHDL to pseudo C
+    "v2c". There are also a few VHDL files for testing in vlib/.
+
+    The `*.t' files are the node description for the abstract graph.
+
+doc/
+    Here is almost no documentation. There is stud.dvi, which is my
+    "Studienarbeit" and the beginnings of a `Vaul Reference Manual',
+    both in german.
+
+* COMPILING
+
+Basically, what you do with GNU packages:
+
+    % configure
+    % make
+
+More complete instructions are in INSTALL.
+
+You need GNU Make and probably GNU C++ (2.6.3 and up) and maybe some
+other GNUish tools. It should compile at least on GNU/Linux, SunOS 4 and
+5, maybe with some tweaking.
+
+Ctree is not needed to succesfully build the two sample programs vau and
+v2c. So if you can't get ctree to compile, go directly into libvaul/ and
+continue there.
+
+It is not necessary to install the package to run vau and v2c.
+
+I really have no experience writing portable software. You are on your
+own. Don't give up!
+
+If you manage to compile the tools (or have downloaded one of the binary
+distributions) read QUICKSTART to find out how to use them.

@@ -1,0 +1,2 @@
+entity huhu is
+end;

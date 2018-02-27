@@ -1,0 +1,191 @@
+%
+%
+
+\chapter{Der abstrakte Syntaxgraph}
+\label{syngraph}
+
+\section{Grundlagen}
+
+Nachdem der Parser seine Arbeit getan hat, findet sich der VHDL Text
+möglichst unverfälscht in einem Syntaxgraphen wieder. Die Knoten dieses
+Graphen enthalten dabei einige Attribute, z.B. den Namen einer
+Variablen als "char*" oder die Zeilennummer eines Konstrukts als "int".
+Der Rest steckt in den Verbindungen der Knoten untereinander, z.B.
+werden die Operanden "a" und "b" des Ausdrucks "a+b" als eigene Knoten
+dargestellt, und der Knoten für den gesamten Ausdruck hat Verbindungen
+zu ihnen. 'Graphisch' sieht das in diesem Buch so aus:
+
+\npic{intro}
+
+Auf diese Weise werden auch alle weiteren Bilder von (Teil-) Graphen
+dargestellt: Jeder Knoten ist ein Kasten mit den Attributen und Namen
+für die Verbindungen; Verbindungen sind Pfeile von einem Kasten zum
+anderen.  Der hervorgehobene Name in der ersten Zeile eines Kastens
+bezeichnet den Typen des zugehörigen Knotens, z.B. "Declaration",
+"Statement" oder "Expression".  Die Typen sind alle direkt oder indirekt
+von einem Basistypen abgeleitet und bilden so einen 'Typenbaum'.
+\footnote{Mehrfachvererbung gibt es leider (noch) nicht.}
+
+Realisiert ist die Hierarchie der Knotentypen mit einer passenden
+\C++ Klassenhierarchie. Die Verbindungen zwischen den Knoten werden dabei
+durch Zeiger hergestellt. Die Erzeugung dieser Klassenhierarchie aus
+einer extra spezial Knotenbeschreibungssprache ist ein Kapitel für
+sich.\footnote{Vielleicht sogar ein ganzes Buch} "ctree" ist
+hauptsächlich für zwei Dinge zuständig, die \C++ (noch) nicht bietet:
+eine simple Typenidentifizierung zur Laufzeit und eine automatisierte
+Möglichkeit, den Graphen oder Teile davon in eine Datei zu schreiben
+und wieder zu lesen. ??? enthält alle Details, hier wird
+nur kurz beschrieben, wie seine Möglichkeiten für "libvaul" genutzt
+worden sind.
+
+Knotentypen werden in einer eigenen Notation definiert. Z.B. könnte
+die Definitionen für die Knotentypen "BinOp" und "VariableRef" oben
+aus dem Bild so aussehen:
+\begin{code}
+// {\rm Eine allgemeine Basisklasse für Ausdrücke.}
+// {\rm (Node ist die Basisklasse der kompletten Typenhierarchie und}
+// {\rm muß voanders definiert sein.)}
+
+node Expression : Node \{
+\};
+
+// {\rm Ein \verb|BinOp| ist auch eine \verb|Expression| mit Verbindungen}
+// {\rm (Zeigern) zu den beiden Operanden.}
+
+node BinOp : Expression \{
+    attr char op;
+    Expression left;
+    Expression right;
+\};
+
+// {\rm Eine \verb|VariableRef| hat keine Zeiger, ist also ein}
+// {\rm "Blatt" des Graphen.}
+
+node VariableRef : Expression \{
+    attr char *id;
+\};
+\end{code}
+
+"ctree" erzeugt daraus \C++ Klassen und Typdefinitionen nach folgenden
+Konventionen, am Beispiel von "BinOp" aufgezählt:
+
+\begin{desc}{\b{sBinOp}}
+Der Name der eigentlichen Klasse:
+\begin{code}
+struct sBinOp \{
+    {\rm \dots}
+    char op;
+    nExpression left;
+    nExpression right;
+    {\rm \dots}
+\};
+\end{code}
+\end{desc}
+
+\begin{desc}{\b{nBinOp}}
+Ein Name für den Typ 'Zeiger auf "sBinOp"':
+\begin{code}
+typedef sBinOp *nBinOp;
+\end{code}
+\end{desc}
+
+\begin{desc}{\b{nkBinOp}}
+Eine Enumerationskonstante vom Type "nKind" über die sich
+der Typ eines Knotens identifizieren läßt:
+\begin{code}
+enum nKind {
+    {\rm \dots}
+    nkBinOp,
+    {\rm \dots}
+};
+\end{code}
+"ctree" listet die Konstanten in der Enumeration in der Reihenfolge
+auf, die ihm am Besten passt.
+\end{desc}
+
+\begin{desc}{\b{mBinOp}}
+Ein Macro zum Erzeugen von "BinOp" Knoten mit
+"new". Nicht benutzen bevor es nicht besser dokumentiert ist.
+\end{desc}
+
+Die Basisklasse der Typenhierachie (und damit alle abgeleiteten
+Klassen) hat eine Funktion zum Überprüfen des echten Typs zur
+Laufzeit:
+
+\begin{desc}{"bool" \b{is} ("nKind" <k>)}
+Ermittelt ob "this" zu dem Typ oder einem davon abgeleiteten gehört,
+der durch <k> identifiziert wird.
+\end{desc}
+
+Ein Beispiel:
+\begin{code}
+// {\rm gibt \verb|e| in Postfix aus}
+
+void postfix(nExpression e)
+\{
+    if(e->is(nkBinOp)) \{
+        nBinOp bo = nBinOp(e);
+        postfix(bo->left);
+        postfix(bo->right);
+        printf("%c ", bo->op);
+    \} else if(e->is(nkVariableRef))
+        printf("%s ", nVariableRef(e)->id);
+    else
+        printf("? ");
+\}
+\end{code}
+
+Die Beschreibung der einzelnen Knotentypen folgt diesem Muster:
+
+\def\internal{{\sl (intern)}}
+\begin{ndesc}{\b{Typname} : Basis : Basis_der_Basis : ... : Node}{\ \internal}
+ Zuerst kommt der 'Stammbaum' des Typs: Ausgehend von der diskutierten
+ Klasse werden alle Basistypen bis hin zur Wurzelklasse aufgelistet.
+ Knotentypen, die mit ``\internal'' markiert sind, werden vom Parser
+ nur zum eigenen Vergnügen benutzt. Sie tauchen nicht im endgültigen
+ Syntaxgraphen auf, der in die Bibliothek eingefügt wird.
+
+ In diesem Absatz folgt dann eine allgemeine Einordnung in die
+ Hierarchie und die Rolle dieses Knotentypen bei der Darstellung von
+ VHDL Syntax.
+
+ \begin{desc}{"c_type" \b{attribut_name}}
+  Beschreibt die Attribute des Typs. Die Typen auf der linken Seite
+  sind normale \C++ Typen.
+ \end{desc}
+
+ \begin{desc}{Knotentyp \b{kind}}
+  Beschreibt Verbindungen zu anderen Knoten. In der \C++ Implementierung
+  sind das Zeiger auf die entsprechenden Strukturen ("nKnotentyp", s.o.).
+ \end{desc}
+
+ Es werden nur die Unterschiede zum direkten Basistypen beschrieben. Das
+ beinhaltet alle neuen Attribute und Verbindungen des abgeleiteten Typs
+ und spezielle Interpretationen und Beschränkungen für ererbte Elemente.
+\end{ndesc}
+
+Neben den Knotentypen werden auch einige \C++-Typen verwendet, die
+mittels "typedef" passende Namen bekommen.
+
+Knotentypen, die mit ``\internal'' markiert sind, werden vom
+Parser nur zum eigenen Vergnügen benutzt. Sie tauchen nicht im
+endgültigen Syntaxgraphen auf, der in die Bibliothek eingefügt wird.
+
+\paragraph{Listen}
+
+Einfach verkette Listen von Knoten tauchen sehr häufig im Graphen auf.
+Der Zeiger auf den ersten Knoten einer solchen Liste heißt immer
+"first" oder "first_"*. Die einzelnen Elemente werden entweder über
+"next"- oder "link"-Zeiger zusammengehängt. Bei Listen, bei denen die
+Reihenfolge der Elemente eine Rolle spielt (z.B. die Liste der Indices
+eines Arrays) wird "next" verwendet, bei ungeordneten Listen
+(z.B. ???)  heißt der Zeiger auf das nächte Element "link". Das Ende
+einer Liste wird durch einen "NULL"-Zeiger als "next" oder "link"
+gekennzeichnet. Wenn ein Knoten gleichzeitig in mehreren Listen
+auftauchen kann, haben die Zeiger auf den nächsten Knoten die Namen
+"next_"* oder "link_"*.
+
+Soweit nicht anders erwähnt, sind die Elemente von geordneten Listen
+in der gleichen Reihenfolge aufgelistet wie im VHDL-Text.
+
+\input{node-desc}

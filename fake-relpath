@@ -1,0 +1,5 @@
+#! /bin/sh
+# take two absolute pathnames and return the second one
+
+case $1 in -f) shift;; esac
+echo $2

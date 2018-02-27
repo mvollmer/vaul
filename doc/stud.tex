@@ -1,0 +1,2470 @@
+%
+% Meine kleine Studienarbeit
+%
+%  Copyright (C) 1994-1996 University of Dortmund
+%  Department of Electrical Engineering, AG SIV
+%  All Rights Reserved.
+%
+%  Permission to use, copy, modify and distribute this software and its
+%  documentation for non-commercial purposes is hereby granted,
+%  provided that both the copyright notice and this permission notice
+%  appear in all copies of the software, derivative works or modified
+%  versions, and any portions thereof, and that both notices appear in
+%  supporting documentation.
+%
+%  THE UNIVERSITY OF DORTMUND ALLOWS FREE USE OF THIS SOFTWARE
+%  IN ITS "AS IS" CONDITION.  THE UNIVERSITY OF DORTMUND DISCLAIMS
+%  ANY LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING
+%  FROM THE USE OF THIS SOFTWARE.
+%
+%  The University of Dortmund requests users of this software
+%  to return to
+%
+%       Arbeitsgebiet Schaltungen der Signalverarbeitung
+%       Fakultät für Elektrotechnik
+%       Universität Dortmund
+%       44221 Dortmund, Germany
+%
+%  or `msipc@nt.e-technik.uni-dortmund.de' any improvements or
+%  extensions that they make and grant the University of Dortmund
+%  the unlimited use and distribution of these changes.
+%
+%  Read README.LICENSING for further information.
+
+\NeedsTeXFormat{LaTeX2e}
+
+\documentclass[a4paper,11pt,twoside,final]{book}
+\usepackage{german}
+\usepackage[iso]{umlaute}
+\usepackage{epic}
+\usepackage{eepic}
+\usepackage{vaul}
+
+\raggedbottom
+
+\begin{document}
+
+\title{\vspace{-3.5cm}Generierung eines VHDL-Parsers}
+\author{Marius Vollmer\\\\Studienarbeit S13-94 --- AG SIV, UniDO}
+\date{}
+\maketitle
+
+
+{\makeatletter
+ \def\@makeschapterhead#1{%
+  \vspace*{0\p@}%
+  {\parindent \z@ \raggedright
+    \reset@font
+    \Huge \bfseries  #1\par
+    \nobreak
+    \vskip 40\p@
+  }}
+ \tableofcontents
+}
+
+\chapter{Einleitung}
+ {\sl\begin{flushright}
+  \textbf{Ada}: n. A Pascal-descended language that has been made
+   mandatory for Department of Defense software projects by the
+   Pentagon.  Hackers are nearly unanimous in observing that,
+   technically, it is precisely what one might expect given that kind
+   of endorsement by fiat; designed by committee, crockish, difficult
+   to use, and overall a disastrous, multi-billion-dollar boondoggle
+   (one common description is ``The PL/I of the 1980s'').  Hackers
+   find Ada's exception-handling and inter-process communication
+   features particularly hilarious.  Ada Lovelace (the daughter of
+   Lord Byron who became the world's first programmer while
+   cooperating with Charles Babbage on the design of his mechanical
+   computing engines in the mid-1800s) would almost certainly blanch
+   at the use to which her name has latterly been put; the kindest
+   thing that has been said about it is that there is probably a good
+   small language screaming to get out from inside its vast,
+   elephantine bulk.
+
+   \bigskip --- The Jargon File 3.0.0
+ \end{flushright}}
+
+Das Ziel dieser Arbeit war es, den ersten Schritt für eine allgemeine
+Einbindung von VHDL in MSIPC zu implementieren: die Umsetzung eines
+VHDL Programms in einen computergerechten abstrakten Syntaxgraphen.
+Der folgende Text gibt anhand von Beispielen einen Überblick über die
+wichtigsten Konzepte und Methoden des entstandenen Softwarepakets. Er
+soll vor allem einen Einstieg zum groben Verständnis der Quelltexte
+geben. Eine detailierte Beschreibung, wie sie zum eigentlichen
+Benutzen des Pakets nötig ist, findet sich in der ``{\tt libvaul}
+Referenz''.
+
+\section{MSIPC und VHDL}
+
+MSIPC steht für ``{\bf M}ixed mode system {\bf S}imulation for {\bf
+I}mage {\bf P}rocessing {\bf C}ircuits'' \cite{msipc}. Es ist ein
+Rahmen für die Simulation von Bildverarbeitungshardware mit
+verschiedenen Beschreibungssprachen und Simulationstechniken. Das
+Hauptaugenmerk liegt dabei auf der automatischen Erzeugung eines
+C-Programms aus den unterschiedlichen Quellen, die die Schaltung
+beschreiben. Dieses C-Programm führt dann zur Laufzeit die Simulation
+durch.
+
+VHDL (\textbf{V}ery High Speed Integrated Circuits \textbf{H}ardware
+\textbf{D}escription \textbf{L}anguage) ist eine von Ada abgeleitete 
+sehr allgemeine Beschreibungssprache, die in allen Phasen des
+Hardwaredesigns eingesetzt werden kann und hat sich in Europa als {\em
+der} Standard auf diesem Gebiet etabliert. Mit ihr kann sowohl die
+strukturelle Beschreibung einer Designhierarchie als auch die
+algorithmische Beschreibung des Verhaltens einzelner Komponenten
+erfolgen. Als Definition für VHDL diente der ANSI/IEEE Std 1076-1993
+(``IEEE Standard VHDL Language Reference Manual'' \cite{lrm}, kurz
+<LRM>). Begriffe aus dem <LRM> werden im folgenden <in diesem
+Zeichensatz> gesetzt.
+
+\bigskip\noindent
+Eine typische Vorgehensweise mit MSIPC ist z.B. die graphische
+Erstellung des Blockschaltbildes einer Schaltung aus der dann
+automatisch eine Netzliste erzeugt wird. Aus dieser Netzliste wird
+dann automatisch ein Rahmenprogramm generiert, das die Ablaufsteuerung
+der Simulation übernimmt und mit den passenden C-Funktionen
+zusammengebunden wird, die das Verhalten der grundlegenden Blöcke
+verwirklichen. Diese verhaltensbeschreibenden C-Funktionen könnten
+z.B. aus der Crosscompilierung eines Assemblerprogramms für einen
+Signalprozessor hervorgegangen sein oder auch direkt von Hand in C
+geschrieben werden.
+
+Es besteht auch die Möglichkeit, die Simulation selbst heterogen
+ablaufen zu lassen: Das automatisch erzeugte C-Programm kann zur
+Laufzeit Daten mit anderen Simulatoren austauschen, so daß Teile der
+Simulation mit anderen Techniken durchgeführt werden können.  Z.B. ist
+es möglich aus einer Hardwarebeschreibung in VHDL den strukturellen
+Teil herauszulösen und --- über den Umweg einer Netzliste oder direkt
+--- in das C-Rahmenprogramm zu übersetzen und die
+Verhaltensbeschreibung der anderen Blöcke von einem handelsüblichen
+VHDL Simulator durchführen zu lassen.
+
+MSIPC ist für die Simulation von Schaltung der Bildverarbeitung
+gedacht, bei der für aussagekräftige Ergebnisse riesige Datenmengen
+verarbeitet werden müssen; ein Vollbild im PAL Format benötigt allein
+für die Luminanz 400 kByte.  Um diese Datenmengen zu bewältigen, ist
+das Simulationsmodell von MSIPC der ``synchrone Datenfluß''. Jeder
+Block der Simulation wird durch ein verzögerungsfreies Schaltnetz mit
+Schieberegistern an den Ausgängen dargestellt. Das Simulationsmodell
+von VHDL ist dagegen die ``diskrete Ereignissteuerung''. Dadurch ist
+VHDL wesentlich allgemeiner, handelsübliche VHDL Simulatoren können
+aber unter den speziellen Bedingungen, für die MSIPC optimiert wurde,
+bei weitem nicht die nötige Effizienz liefern.
+
+Trotzdem wäre es schön, wenn man sowiel wie möglich von VHDL in ein
+synchrones Schema pressen könnte und durch eine Crosscompilierung von
+VHDL nach MSIPC auch die Verhaltensbeschreibungen in VHDL
+mit in das erzeugte C-Programm aufnehmen könnte. Auf diese Weise würde
+man sich die zeitaufwendige Simulation von VHDL Beschreibungen mit
+einem ``richtigen'' VHDL Simulator sparen.
+
+Als erster Schritt in Richtung eines VHDL nach C Umsetzers sollte mit
+dieser Studienarbeit ein Werkzeug zur Analyse von VHDL-Code erstellt
+werden. Das Ergebnis der Analyse sollte als abstrakter Syntaxgraph den
+nachfolgenden Stufen zur Erzeugung von Netzlisten oder C-Code zur
+Verfügung stehen. Die VHDL Syntax und Semantik, die von dem
+entwickelten Werkzeug --- dem VHDL Parser --- erfaßt werden kann,
+sollte möglichst komplett sein.
+
+VHDL ist eine sehr umfangreiche und vielschichtige Sprache. Daher war
+es nicht möglich, im Rahmen dieser Studienarbeit die Vollständigkeit
+zu erreichen. Die Implementierung der fehlenden Sprachelemente --- das
+sind vor allem <arrays>, <records>, <attributes> und <files> --- ist
+aber vorbereitet und sollte auf keine prinzipiellen Hürden stoßen.
+
+
+\section{Syntaxgraphen}
+
+Die Hauptaufgabe des Werkzeugs ist die Bewältigung des ersten
+allgemeinen Schritts einer Compilierung: die Abbildung des
+menschenlesbaren Programmtextes in einen für Computer besser
+handhabbaren Graphen. Diese Abbildung kann in der Regel sehr direkt
+erfolgen. Der Programmtext "a = 6*9;" kann z.B. so dargestellt werden:
+
+\npic{stud.intro.1}
+
+Hier wird die Referenz auf die Variable "a" einfach durch ihren Namen
+ausgedrückt. Es wäre aber sicherlich für die nachfolgenden Phasen des
+Compilers einfacher, wenn sie nicht erst in der Symboltabelle nach "a"
+suchen müßten, um z.B. den Typ von "a" zu erfahren. Die Referenz kann
+auch direkt zu dem Knoten im Graphen zeigen, der die Deklaration von
+"a" darstellt:
+\begin{code}
+f() \{
+  int a;
+  a = 6*9;
+\}
+\end{code}
+\npic{stud.intro.2}
+
+Das Ziel war es daher, soweit wie möglich die Semantik des VHDL Textes
+ebenfalls in den Graphen zu übertragen und dabei auch schon weitgehende
+Fehlerüberprüfungen anzustellen.
+
+Es ist sinnvoll die Knotentypen in einer Hierarchie anzuordnen. Auf
+diese Weise können dann nicht nur für die Knoten selbst, sondern auch
+für die Kanten, die von einem Knoten ausgehen, Typinformationen
+angegeben werden. So kann z.B. ausgedrückt werden, daß die "left" und
+"right" Kanten eines "BinOp"-Knoten zu Knoten vom Typ "Expr" (oder
+eines davon abgeleiteten Typen) zeigen. Die Typinformationen können
+(wie in \C++ auch) während des Kompilierens zusätzlich Fehler im
+Programm aufdecken und geben den Sinn der einzelnen Kanten auch besser
+wieder.
+
+Für die Beschreibung und Implementierung der Knotentypen wurde ein
+extra Werkzeug erstellt. In seiner Notation könnten die oben verwendeten Typen
+so aussehen:
+\begin{code}
+
+\c{Der Basistyp. Nichts Besonderes, aber alle Typen müssen von}
+\c{einem einzigen Basistypen abgeleitet sein.}
+\c{}
+node Node \{
+\};
+
+\c{\texttt{Declaration}s können über \texttt{link}}
+\c{zusammengehängt werden. \texttt{id} ist keine Kante sondern}
+\c{ein Attribut. Attribute können beliebige C Typen haben.}
+\c{}
+node Declaration : Node \{
+  attr char *id;
+  Declaration link;
+\};
+
+\c{\texttt{Scope}s sind selber \texttt{Declaration}s und}
+\c{enthalten eine Liste ihrer \texttt{Declaration}s.}
+\c{}
+node Scope : Declaration \{
+  Declaration decls;
+\};
+
+node Function : Scope \{
+  Statement stats
+\};
+
+node Variable : Declaration \{
+  Type type;
+\};
+
+\c{Typen werden allein durch den verwendeten Knoten}
+\c{unterschieden.}
+\c{}
+node Type : Node \{
+\};
+
+node Integer : Type \{
+\};
+
+node Statement : Node \{
+  Statement next;
+\};
+
+node Assignment : Statement \{
+  Expr target;
+  Expr value;
+\};
+
+node Expr : Node \{
+\};
+
+node VarRef : Expr \{
+  Variable var;
+\};
+
+node BinOp : Expr \{
+  attr char op;
+  Expr left;
+  Expr right;
+\};
+
+node Literal : Expr \{
+  attr int value;
+\};
+
+\end{code}
+
+Das Werkzeug ("ctree") erzeugt daraus eine passende \C++-Klassenhierarchie
+und stellt Methoden zum Lesen und Schreiben von Teilgraphen zur Verfügung.
+
+Aus der Sicht eines \C++-Programms stellt sich der Graph als eine
+stark verzeigerte Sammlung von Strukturen (oder Klassen) dar. Die
+gerichteten Kanten des Graphen sind Zeiger auf solche Strukturen und
+die restlichen Attribute sind einfache Strukturelemente. Das Programm
+kann auch zur Laufzeit eine Typüberprüfung der Knoten vornehmen,
+mit Berücksichtigung der Typenhierarchie. Eine typische Funktion
+könnte so aussehen:
+\begin{code}
+\c{gibt \texttt{e} in Postfixnotation aus}
+\c{}
+void postfix(nExpr e)
+\{
+  if(e->is(nkBinOp)) \{
+    nBinOp b = nBinOp(e);
+    postfix(b->left);
+    postfix(b->right);
+    printf("%c ", b->op);
+  \} else if(e->is(nkVarRef))
+    printf("%s ", nVarRef(e)->var->id);
+  else if(e->is(nkLiteral))
+    printf("%d ", nLiteral(e)->value);
+  else
+    \textrm{Fehler: kaputter Ausdruck, o.ä.}
+\}
+\end{code}
+
+Die Namen von Knotentypen erscheinen im folgendem "in diesem Zeichensatz".
+
+\section{VHDL Design Files, Units und Libraries}
+
+Der VHDL-Parser soll den Anwender der erzeugten Syntaxgraphen
+möglichst gut vom eigentlichen <design file> isolieren. Dazu gehört
+neben der Analyse des VHDL-Code auch die Verwaltung der <design units>
+in <design libraries>. Zu diesem Zweck wurde ebenfalls eine --- im
+Vergleich zum Syntaxgraphen leicht überschaubare --- \C++
+Klassensammlung entworfen. Dazu gehören Implementierungen der
+Basiskonzepte von VHDL, aber auch ein kleiner Rahmen für die Fehler- und
+Speicherverwaltung.
+
+Die Klasse "vaul_design_unit",\footnote{\texttt{vaul} steht für Vhdl
+Analyser and Utility Library.} die das Konzept der <design unit>
+realisiert, beherbergt in erster Linie den aus dem entsprechenden
+VHDL-Code erzeugten Syntaxgraphen. Es ist die kleinste Einheit, die
+von einer "vaul_library" verwaltet werden kann. <Design files> werden
+durch die Klasse "vaul_design_file" vertreten, die den gesamten
+Apparat zur Analyse von VHDL-Code --- den eigentlichen Parser ---
+enthält. Der typische Ablauf z.B. bei der Generierung von C-Code aus
+einem <package> sieht so aus:
+\begin{itemize}
+\item Zuerst wird das <package> in eine <design library> eingefügt.
+      Die VHDL Datei, die die Beschreibung des <packages> enthält,
+      wird in einem Programm durch ein "vaul_design_file"
+      dargestellt; die VHDL <design library>, in die das Package
+      eingefügt werden soll, durch eine "vaul_library". Der Aufruf der
+      Funktion "vaul_de\-sign_file::insert" fügt alle <design
+      units> aus dem <design file> in die <design library> ein.
+\item Ein zweites Programm (oder auch dasselbe) findet die dem
+      <package> entsprechende "vaul_design_unit" über ihren Namen in
+      der "vaul_library" wieder und beginnt den erzeugten
+      Syntaxgraphen entlangzulaufen. Alle Querverweise zu anderen
+      <design units> (z.B. dem allgegenwärtigen "package standard")
+      sind bereits aufgelöst und diese <design units> stellen sich dem
+      Programm einfach als Teil des Syntaxgraphen dar. In den
+      allermeisten Fällen erfährt das Programm gar nicht, aus welcher
+      <design unit> oder <design library> welcher Teil des Graphen
+      stammt.
+\end{itemize}
+Dieser Ablauf kann auch verfeinert werden. <Design units> können z.B.
+einzeln aus <design files> herausgelöst und direkt verarbeitet werden.
+
+
+\section{Lexer und Parser}
+
+Die Begriffe Lexer (oder Scanner) und Parser bezeichnen die
+Programmteile eines Compilers, die die lexikalische bzw. syntaktische
+Analyse des Programmtextes durchführen.
+
+\begin{figure}[ht]
+{\small
+.PS
+ellipse "VHDL" "Text"
+arrow
+box "Lexer"
+arrow
+ellipse "Symbol-" "strom"
+arrow
+box "Parser"
+arrow
+ellipse "Syntax-" "graph"
+.PE
+\box\graph}
+\caption{Lexer und Parser}
+\end{figure}
+
+Die lexikalische Analyse hat zur Aufgabe, die einzelnen Buchstaben des
+Quelltextes nach den Regeln der untersuchten Sprache zu Symbolen
+(<token>) zu gruppieren. Diese Symbole sind die Grundbausteine, mit
+denen die Grammatik einer Sprache beschrieben wird, unter anderem die
+Schlüsselwörter wie "for", "return"; Operatoren wie "+", \verb|<=|;
+Konstanten wie "2", \verb|"Hello, World"| und einfache Namen wie "x",
+"printf" (Beispiele aus C).
+
+Die syntaktische Analyse versucht den Strom von Symbolen, den der
+Lexer liefert, auf die Grammatik der Sprache abzubilden. Dazu wird die
+Grammatik in Form von Regeln beschrieben, die angeben wie sich die
+Konstrukte der Sprache aus Symbolen und anderen Konstrukten
+zusammensetzen. Eine Regel könnte zum Beispiel lauten:
+\begin{quote}
+``Ein Ausdruck kann aus einem Ausdruck, gefolgt von einem "+"-Symbol,
+gefolgt von einem Ausdruck bestehen.''
+\end{quote}
+
+ Um die endlose Rekursion dieser Regel zu beenden, die Ausdrücke durch
+Ausdrücke definiert, ist noch eine weitere Regel nötig, z.B.:
+\begin{quote}
+``Ein Ausdruck kann auch aus einer Konstanten bestehen.''
+\end{quote}
+
+ Für einige Symbole steht genau fest, welche Buchstaben im Quelltext
+gestanden haben, wenn der Lexer ihr Auftauchen meldet. Sobald der
+Lexer z.B. den Buchstaben "+" sieht, gibt er das Symbol für den
+Operator "+" an den Parser weiter; mehr gibt es nicht zu
+sagen. Bei anderen Symbolen, die für eine ganze Klasse von Eingaben
+zuständig sind (z.B. Konstanten), ist es dagegen für den Parser
+wichtig, mehr zu erfahren. Daher gibt der Lexer nicht nur Symbole an
+den Parser weiter, sondern (~Symbol,~Wert~) Paare. Sieht der Lexer
+z.B. die Eingabe "2", so meldet er dem Parser das Paar (~Konstante,~2~).
+
+Die Aufgabe des Parsers ist es nun, zu entscheiden, für welchen Teil
+der Eingabe welche Regel zuständig ist, so daß die komplette Eingabe
+abgedeckt ist.
+
+Sobald der Parser eine der Regeln anwendet, die die Konstrukte der
+Sprache beschreiben, führt er die mit ihr verknüpften
+Aktionen aus. Diese Aktionen ermitteln für das Konstrukt, das die
+Regel beschreibt, einen neuen Wert aus den Werten der
+``Unterkonstrukte'' und Symbole, aus denen es besteht. Eine Aktion,
+die Ausdrücke direkt berechnet, könnte für die erste Regel z.B. so
+lauten:
+\begin{quote}
+``Der Wert dieses Ausdrucks ist der Wert des linken Ausdrucks plus
+dem Wert des rechten Ausdrucks.''
+\end{quote}
+
+Und für die zweite Regel:
+\begin{quote}
+``Der Wert dieses Ausdrucks ist der Wert der Konstanten.''
+\end{quote}
+
+In formaler Schreibweise wird das alles viel übersichtlicher:
+\begin{verbatim}
+Ausdruck:
+        Ausdruck '+' Ausdruck     { $$ = $1 + $3; }
+    |   Konstante                 { $$ = $1; }
+    ;
+\end{verbatim}
+
+Der Teil in den geschweiften Klammern sind die Aktionen, die mit den
+Regeln in der gleichen Zeile verknüpft sind.
+
+Es gibt zahlreiche Tools, die aus solchen formalen Beschreibungen der
+Grammatik zusammen mit den gewünschten Aktionen C-Funktionen erzeugen,
+die die syntaktische Analyse abdecken. Ebenso gibt es Tools für die
+lexikalische Analyse.
+
+Der VHDL-Parser wurde mit solchen Tools ("flex" und "bison")
+erstellt und erzeugt mit seinen Aktionen den gewünschten Syntaxgraphen.
+
+\bigskip\noindent
+Für eine gründliche Behandlung dieses Themas siehe \cite{asu}.
+
+
+
+
+
+
+\chapter{Syntaxgraphen}
+
+Die eigentliche Aufgabe des VHDL-Parsers ist es, einen Syntaxgraphen
+zu erstellen, der die Syntax und auch ein wenig der Semantik des
+VHDL-Textes in computergerechter Form wiedergibt. Das Ziel war dabei,
+schon während dieser Phase der Compilierung möglichst viele Fehler zu
+erkennen und zu melden. Fehler, die im allgemeinen erst durch
+Ausführung von VHDL Anweisungen oder Auswertung von VHDL Ausdrücken
+entdeckt werden können, z.B. Verletzung der Einschränkungen eines
+<subtype>, blieben dabei allerdings unberücksichtigt.
+
+Obwohl jede <design unit> getrennt analysiert und in einen Graphen
+umgewandelt wird, hat der entstehende Graph in der Regel
+Querverbindungen zu den Graphen anderer <design units>. Diese
+Verbindungen sind den Verbindungen innerhalb des Graphen völlig
+gleichwertig. Man muß sich sowohl während der Konstruktion als auch
+während der späteren Inspektion des Graphen nicht darum kümmern, zu
+welcher <design unit> ein Knoten gehört oder aus welcher <design
+library> er stammt. Das erledigen die grundlegenden Lese- und
+Schreibroutinen der Graphenverwaltung automatisch.
+
+Die Verarbeitung des VHDL-Textes zu dem endgültigen Graphen geschieht
+in zwei Stufen: zuerst wird die Struktur des VHDL Programms sehr
+direkt in einen ``Zwischengraphen'' umgewandelt. Aus diesem
+Zwischengraphen wird dann durch Auflösen von Namen und anderen
+``Optimierungen'' der eigentliche Graph produziert, der schließlich
+abgespeichert oder direkt von nachfolgenden Phasen des Compilers
+bearbeitet wird. Die ``Optimierung'' des Zwischengraphen geschieht eng
+verzahnt mit der syntaktischen Analyse und dem Erstellen des
+Zwischengraphen und ist im allgemeinen nicht scharf von den anderen
+Aktivitäten während des Parsens zu trennen.
+
+Es wurde darauf geachtet, daß bei der ``Optimierung'' möglichst wenig
+interessante Informationen verloren gehen, um den nachfolgenden Phasen
+genügend Material für Fehlermeldungen zur Verfügung zu stellen. So
+sind fast alle Knoten mit den Zeilennummern des zugehörigen
+Quelltextes versehen worden.
+
+Die Namen der Knotentypen wurden so gewählt, daß sie im allgemeinen zu
+den Begriffen aus dem <VHDL Language Reference Manual> passen. Zu
+\begin{code}
+variable_assign_stat:
+        variable_target ':=' expr ';'
+    ;
+\end{code}
+gehört z.B. der Knotentyp
+\begin{code}
+node VarAssignment : Statement \{
+  ObjectRef target;
+  Expr value;
+\};
+\end{code}
+
+An einigen Stellen gibt es aber kleine und große Abweichungen. Auch
+die Hierarchie der Knotentypen weicht manchmal von dem
+Offensichtlichen ab.  Ein paar Ausnahmen und Besonderheiten sind im
+folgenden beschrieben.
+
+\section{Deklarationen und Gültigkeitsbereiche}
+"Declaration"s sind die Basis für einen sehr großen Bereich der
+Typenhierarchie. Dazu zählen die offensichtlichen Dinge wie Variablen
+und Unterprogramme, aber auch alle <design units> und die <concurrent
+statements>. Viele Deklarationen bezeichnen Elemente, die wiederum
+Deklarationen enthalten können: Unterprogramme, <design units> usw.
+Diese <scopes> werden mit Hilfe des Knotentyps "Scope" repräsentiert.
+Ein "Scope" entspricht allerdings mehr dem <declarative part> des
+<LRM> und enthält alle in einem <declarative part> stehenden
+Deklarationen. Das Konzept syntaktisch unterbrochener
+Gültigkeitsbereiche, die <declarative regions>, wird durch die
+Zusammenbindung der einzelnen "Scope"s erreicht. Z.B. bilden
+zueinenander gehörende <package> und <package bodies> eine gemeinsame
+<declarative region>. Folgerichtig ist der "Scope", der den <package
+body> darstellt, mit seinem "continued" Zeiger an den "Scope" des
+<package> angebunden. Die Routinen zur Namensauflösung benutzen die
+ineinandergeschachtelten und querverbudenen "Scope"s um die
+komplizierten Sichtbarkeitsregeln von VHDL zu verwirklichen.
+
+Die <identifier> der "Declaration"s sind einfache "char*" und werden
+auch für den allgemeineren Fall der <designators> (Schreibweise von
+Operatoren als Funktionsnamen: \verb|"+"|, \verb|"-"|, \verb|"AND"|,
+\dots) eingesetzt. Dabei werden die Begrenzer aus dem Quelltext mit in
+den C-String übernommen.  Z.B. hat die "Declaration" des "+"-Operators
+den String \verb|"+"| als <identifier>, komplett mit den doppelten
+Anführungszeichen.
+
+\section{Namenauflösung}
+Daß Referenzen, die im Quelltext mit Namen ausgedrückt sind, im
+Syntaxgraphen bereits aufgelöst und durch direkte Zeiger auf die
+gemeinten "Declaration"s ersetzt sind, ist sicher die beste Nachricht
+für die Anwender des VHDL-Parsers.
+
+Namen werden in mehreren Stufen aufgelöst:
+\begin{itemize}
+\item Zunächst wird die Menge aller sichtbaren Deklarationen gemäß
+      den Regeln des <LRM> bestimmt. Dabei werden <selected names>
+      verfolgt und auch potentiell sichtbare Deklarationen aus <use
+      clauses> betrachtet.
+\item Zu einem späteren Zeitpunkt wird dann diese Menge weiter durch
+      Forderungen an die Deklarationen eingegrenzt. Das können z.B.
+      Einschränkungen der Rückgabetypen von Funktionen oder Anzahl der
+      formalen Parameter sein. Diese Einschränkungen können auch nur
+      versuchsweise sein und später wieder zurückgenommen werden. Bei
+      der Auflösung von Namen in Ausdrücken sind beispielsweise in der
+      Regel mehrere Namen und damit auch mehrere Deklarationsmengen im
+      Spiel. Wenn dann schließlich feststeht, welchen Typ der Ausdruck
+      haben darf, werden die Mengen so lange gegeneinander
+      ausbalanciert, bis alle Mengen alle Anforderungen erfüllen oder
+      klar ist, daß es keine Lösung gibt.
+\item Danach kann dann überprüft werden, ob die Benutzung des Namens 
+      in diesem Kontext legal war und wenn ja, kann auf die einzige
+      übriggebliebene "Declaration" verwiesen werden.
+\end{itemize}
+
+\section{Unterprogramme und Packages}
+
+Unterprogramme bestehen im Graphen immer aus zwei Teilen: der
+<subprogram declaration>, die alle Angaben über die Paramter und bei
+Funktionen auch den Rückgabetyp enthält und dem <subprogram body>, mit
+den lokalen Variablen und Anweisungen des Unterprogramms. Die
+<subprogram declaration> ist entweder eine "Procedure" oder eine
+"Function", der <subrogram body> immer ein "SubprogramBody". Diese
+beiden Knoten werden über den "continued" Zeiger des "SubprogramBody"
+zusammengehängt.
+
+Die formalen Parameter eines Unterprogramms werden als eine Liste von
+"Inter\-face"s dargestellt. Diese "Interface"s sind normale
+"Declaration"s und können so mit den normalen Mechanismen der
+Namensauflösung gefunden werden.
+
+Bei einem Funktions- oder Prozeduraufruf ("FunctionCall" oder
+"ProcedureCall\-Stat") werden die formalen Parameter mit ihren aktuellen
+Werten durch eine "Associa\-tion" Liste verbunden. Jede "Association"
+enthält dabei einen Zeiger auf das "Inter\-face" und die "Expr", die
+verbunden werden sollen.
+
+\section{Typen und Subtypen}
+
+Wie auch an anderen Stellen werden bei Typdeklarationen die impliziten
+Deklarationen laut <LRM> explizit in den Graphen mit aufgenommen, um
+ihre Sonderbehandlung auf eine Stelle im Programm zu beschränken. So
+werden zum Beispiel aus "type integer is range -100 to 100;" zwei
+"Declaration"s: eine für den impliziten und anonymen Basistypen
+("IntegerType"-Knoten) und eine für den Subtypen namens ``integer''
+("SubType"); Ebenso materialisieren sich die zahlreichen impliziten
+Funktionsdeklarationen, die zu einem Typen gehören, als
+"PredefOp"s. "PredefOp" ist nur ein anderer Name für "Function" für
+diese spezielle Anwendung, da spätere Phasen der Compilierung
+vordefinierte Operatoren sicherlich besonders behandeln müssen.
+
+Da die Überprüfung der Grenzen eines Subtypes im allgemeinen die
+Auswertung von beliebigen Ausdrücken erfordert, wird sie nicht von
+diesem Teil des Compilers vorgenommen, sondern muß später bei der
+Erzeugung oder auch erst während der Laufzeit des erzeugten Programms
+nachgeholt werden.
+
+\section{Ausdrücke}
+
+Die normale Schreibweise von mathematischen Formeln, wie
+\begin{code}
+2+3*4
+\end{code}
+ist in VHDL nicht die einzige Möglichkeit. Man kann Operatoren auch
+wie Funktionen verwenden:
+\begin{code}
+"+" (2, "*" (3, 4)).
+\end{code}
+Operatoraufrufe werden daher genau wie andere Funktionsaufrufe
+behandelt und werden durch den gleichen Knotentyp ("FunctionCall")
+im Graphen dargestellt. 
+
+Ausdrücke sind das Hauptanwendungsgebiet für die Namensauflösung. Erst
+wenn der umgebende <complete context> (z.B. eine Variablenzuweisung) erkannt
+ist, kann endgültig entschieden werden, welche Funktionen die Namen
+und Operatoren im Ausdruck bedeuten. In der ersten Stufe der
+Namensauflösung wird der gesamte Ausdruck vom Parser in einen
+``Zwischengraphen'' umgesetzt, in dem alle Funktionsaufrufe noch
+mehrdeutig sind. Der Knotentyp "AmbgCall" nimmt dabei die Stelle des
+späteren "FunctionCall" ein und speichert die Menge der möglichen
+Funktionen. Wenn dann entschieden ist, welchen Typ der Ausdruck haben
+darf (z.B. den Typ der Variablen an die zugewiesen wird), beginnt die
+eigentliche Auflösung der Namen. Das ist ein rekursiver Prozess nach
+folgendem Pseudo-Code:
+\begin{code}
+\c{Der Ausdruck wird hier als einfacher Baum gesehen.}
+\c{Die Knoten sind Funktionsaufrufe mit den aktuellen}
+\c{Parametern als Kindern.}
+\c{Die Blätter des Baumes sind Konstanten.}
+
+bool overload_resolution(Expr e, Type t)
+\{
+  if(e \r{ist eine Konstante}) \{
+    return (\r{Type der Konstanten} == t);
+  \} else \{           \c{\t{e} ist Funktionsaufruf}
+    \r{hebe alle Einschränkungen für die Menge \t{m} der möglichen}
+     \r{Funktionen auf};
+    \r{schränke \t{m} auf die Funktionen mit}
+     \r{Rückgabetyp \t{t} ein};
+    for(\r{jede übriggebliebene Funktion \t{f}})
+      for(\r{jeden Parameter \t{p} von \t{f}})
+        if(!overload_resolution(\r{aktuellen Wert für \t{p}}, \r{Typ von \t{p}}))
+          \textrm{streiche \t{f} aus \t{m}};
+    return (\r{\t{m} hat noch genau ein Element});
+  \}
+\}
+\end{code}
+
+Nach erforlgreichem Ablauf dieses Prozesses ist in jeder der Mengen
+noch genau eine Funktion übrig. Die "AmbgCall" Knoten werden dann
+durch "FunctionCall" Knoten mit Zeigern auf diese Funktionen ersetzt.
+
+Eine besondere Herausforderung war die Behandlung der <implicit
+conversions> der <universal> Typen zu skalaren Typen im Rahmen der
+Namensauflösung. Der entsprechende Ausschnitt aus dem <LRM>:
+\begin{quote}
+In certain cases, an implicit type conversion will be
+performed. [\dots] An implicit conversion of a convertible universal
+operand is applied if and only if the innermost complete context
+determines a unique (numeric) target type for the implicit conversion,
+and there is no legal interpretation of this context without this
+conversion.
+\end{quote}
+
+Diese sehr indirekte Regel ist schwer in einen direkten Algorithmus
+umzusetzen. Daher habe ich folgenden Ansatz gewählt ohne streng
+nachzuprüfen, ob er exakt der Regel entspricht: Bei der
+Namensauflösung wird bewertet, wie gut ein Typ zu dem gewünschten
+paßt. Eine exakte Übereinstimmung kostet nichts, eine implizite
+Konvertierung kostet einen Taler. Bei jeder Funktion werden dann die
+Kosten für die Konvertierung des Rückgabetyps und aller Parameter
+aufsummiert. Den billigsten Funktionen wird der Vorzug gegeben, so daß
+die Funktionen mit den wenigsten impliziten Konvertierungen
+übrigbleiben. Das scheint mir den Sinn der originalen Regel
+wiederzugeben und hat sich bis jetzt in allen Fällen bewährt.
+
+
+\section{Sequentielle Anweisungen}
+
+Die vielfältige "if"-Anweisung von VHDL wird für den Graphen auf eine
+einfachere kanonische Form gebracht. Aus
+\begin{code}
+if $c\sb1$ then
+  $s\sb1$;
+elsif $c\sb2$ then
+  $s\sb2$;
+  \dots
+elsif $c\sb{n}$ then
+  $s\sb{n}$;
+else
+  $s\sb{n+1}$;
+end if;
+\end{code}
+wird
+\begin{code}
+if $c\sb1$ then
+  $s\sb1$;
+else
+  if $c\sb2$ then
+    $s\sb2$;
+  else
+    \dots
+    if $c\sb{n}$ then
+      $s\sb{n}$;
+    else
+      $s\sb{n+1}$;
+    end if;
+    \dots
+  end if;
+end if;
+\end{code}
+
+Dadurch vereinfacht sich der Knotentyp für die "if"-Anweisung zu
+\begin{code}
+node IfStat: Statement \{
+  Expr condition;
+  Statement then_stats;
+  Statement else_stats;
+\};
+\end{code}
+
+Da die Namenauflösung für Ausdrücke am weitesten entwickelt ist, wird
+auch ein Prozeduraufruf vorübergehend wie ein Funktionsaufruf
+behandelt, und es wird mit dem gleichen Mechanismus wie für Funktionen
+entschieden, welche Prozedur wirklich gemeint war.
+
+\section{Parallele Anweisungen}
+
+Es war wünschenswert, alle Knotentypen, die <concurrent statements>
+repräsentieren, von einem gemeinsamen Basistypen "ConcurrentStatement"
+abzuleiten. Zumindest für Prozesse war es darüberhinaus sinnvoll, sie von
+"Scope" abzuleiten, da sie ähnlich Unterprogrammen lokale Variablen
+etc. besitzen. Ohne Mehrfachererbung bedeutet das: alle
+"ConcurrentStatement"s sind "Scope"s, auch wenn das auf den ersten
+Blick keinen Sinn macht.
+
+<Conditional signal assignments> und <selected signal assignments> werden
+für den Graphen in ihren äquivalenten <process> umgewandelt.
+
+\section{Standard Package}
+
+Das zum VHDL Sprachstandard gehörende "package standard" ist aus der
+Sicht des VHDL-Parsers in erster Linie ein <package> wie jedes andere
+auch. Das heißt, es muß auch als Quelltext vorliegen und erst mit den
+normalen Mechanismen in eine <design library> (in der Regel "std")
+eingefügt werden, bevor es (z.B. aus <use clauses> heraus) angesprochen
+werden kann.
+
+Trotzdem erfährt es auch innerhalb des Parsers eine gewisse
+Sonderbehandlung, da viele implizite Konstrukte auf Deklarationen aus
+dem "package standard" zurückgreifen.
+
+
+
+
+
+
+\chapter{VHDL Design Files, Units und Libraries}
+
+Der Syntaxgraph einer <design unit> kann durch seine Querverbindungen
+zu anderen <units> sehr groß werden und sich auch über mehrere <design
+libraries> erstrecken. Jeder Graph einer <design unit> hat z.B. eine
+direkte Verbindung zu dem Graph des "package standard", das meistens
+in einer anderen <design library> enthalten ist. Zum Lesen und
+Schreiben wäre es daher möglich, alle <design libraries> mit allen
+ihren <design units> als einen riesigen Graphen zu behandeln, der in
+binärer Form in einer einzigen Datei gespeichert wird und bei der
+kleinsten Provokation auch komplett in den Speicher gelesen wird.
+
+Um die Effizienz und auch die Übersichtlichkeit zu steigern, wird der
+komplette Graph in Teilgraphen aufgetrennt, die einzeln in ihren
+jeweiligen <design libraries> verwaltet werden können. Zu einem
+solchen Teilgraphen gehören alle Knoten, die aus der Analyse einer
+einzelnen <design unit> hervorgegangen sind. Diese Teilgraphen werden
+dann am Stück geschrieben und wieder eingelesen.
+
+Trotzdem wird für den Anwender die Illusion eines großen Gesamtgraphen
+aufrecht erhalten, da während des Ladens des Teilgraphens einer
+<design unit> alle Teilgraphen mitgeladen werden, die durch den ersten
+Teilgrahen erreicht werden können. Das ist in der Regel nur ein
+kleiner Teil des Gesamtgraphen.
+
+Die Verwaltung von <design units> und <design libraries> wird durch
+eine kleine \C++-Klassensammlung übernommen, mit der man sowohl
+Graphen erstellen, als auch in Dateien speichern kann.
+
+Die Konzepte <design unit>, <design library> und <design file> von
+VHDL werden durch die \C++-Klassen "vaul_design_unit", "vaul_library"
+und "vaul_design_file" realisiert.
+
+\section{Library Pools}
+
+Die Implementierung der Klasse "vaul_library" setzt voraus, daß jede
+<design library> zur Laufzeit nur durch ein einziges Objekt dieser
+Klasse repräsentiert wird. Darüber hinaus geht der VHDL Standard davon
+aus, daß sich alle <resource libraries> während der Analyse eines
+<design files> nicht ändern.
+
+Um diese Bedingungen einzuhalten, kann (und sollte) man sich eines
+"vaul_lib\-pool"s bedienen. Ein "vaul_libpool" koordiniert die Benutzung
+der "vaul_librarie"s von verschiedenen Programmteilen und bietet einen
+Mechanismus, die "vaul_librar\-ie"s in <resource> und <working
+libraries> einzuteilen, um dem Standard gerecht zu werden. Zusätzlich
+stellt der "vaul_libpool" noch Abkürzungen für die häufigsten
+Operationen mit "vaul_librarie"s zur Verfügung, so daß man in der Regel
+ganz um die explizite Verwendung von "vaul_librarie"s herumkommt.
+
+Im Programm wird genau ein "vaul_libpool" angelegt, über den dann alle
+Operationen --- direkt oder indirekt --- ausgeführt werden.
+
+\medskip\noindent
+Um das Konzept der <resource> und <working libraries> von VHDL
+umzusetzen, können über den "vaul_libpool" ``Sitzungen'' für die
+gewünschte <working library> eröffnet und geschlossen werden.
+Innerhalb einer solchen Sitzung werden dann alle Quelltexte
+analysiert, die zu einem <design file> gehören sollen.  Zum Abschluß
+einer Sitzung hat man noch eine letzte Chance, alle in der Sitzung
+gemachten Änderungen rückgängig zu machen.
+
+\section{Design Units und Design Libraries}
+
+Sowohl "vaul_libraries" als auch "vaul_design_unit"s werden über
+einfache "char*"-Namen identifiziert. Diese Namen entsprechen denen im
+VHDL-Text, mit zwei Ausnahmen für "vaul_design_unit"s:
+\begin{itemize}
+\item Bei <package bodies> wird dem Namen ein '.' vorangestellt, um sie
+      von den zugehörigen <packages> zu unterscheiden.
+\item Namen für <architecures> werden um die Namen der entsprechenden 
+      <entities> erweitert; sie sind von der Form:
+      ``<entity>"("<architecture>")"''.
+\end{itemize}
+
+Wird über einen "vaul_libpool" eine "vaul_library" angefordert, die nicht
+existiert, wird eine neue angelegt.
+
+\medskip
+"vaul_design_unit"s sind in der Regel so eng mit anderen
+"vaul_design_unit"s verknüpft, daß sie neu analysiert werden müssen,
+sobald sich eine "vaul_design_unit" ändert, auf die sie Querverweise
+haben. Das bedeutet, daß der Graph einer <design unit> kein
+vollständiger Ersatz für den Quelltext ist\footnote{Genausowenig, wie
+die vom C-Compiler erzeugte Objectdatei ein Ersatz für den C Quelltext
+ist.} und eine übergeordnete Verwaltung von Graphen zusammen mit den
+entsprechenden Quelltexten nötig ist.
+
+\section{Analysieren von Design Files}
+
+Die Analyse von <design files> geschieht mit Hilfe der Klasse
+"vaul_design_file". Sie repräsentiert eine VHDL-Quelldatei und enthält
+den Lexer und Parser.
+
+Da es nur in Randfällen und nach reiflicher Überlegung sinnvoll ist,
+frisch analysierte <design units> {\bf nicht} sofort in eine <design
+library> einzufügen, ist die empfohlene Vorgehensweise folgende:
+\begin{code}
+\c{Anlegen eines \texttt{vaul_libpool}s. Das sollte nur}
+\c{einmal pro Programm geschehen.}
+\c{}
+vaul_libpool pool;
+
+\c{Fügt alle \textsl{design units} in \texttt{file} in}
+\c{die \textsl{design library} \texttt{lib} ein.}
+\c{\texttt{file} ist ein normaler UNIX Dateiname, \texttt{lib} nicht.}
+\c{}
+void insert(char *file, char *lib)
+\{
+  \c{Sitzung für \textsl{working library} \texttt{lib} beginnen.}
+  pool.begin_session(lib); 
+
+  \c{ein \texttt{vaul_design_file} für \texttt{file} anlegen \dots}
+  vaul_design_file dfile(file);
+
+  \c{\dots und alle seine \textsl{design units} einfügen.}
+  dfile.insert(\&pool);
+
+  \c{Sitzung beenden.}
+  pool.end_session();
+\}
+\end{code}
+
+Sollen <design units> tatsächlich einmal direkt bearbeitet werden ohne
+sie in eine "vaul_library" einzufügen, wird empfohlen, sie
+vorübergehend in eine ``anonyme'' "vaul_library" einzufügen. Für diese
+und andere fortgeschrittenen Anwendungen gibt es entsprechend
+fortgeschrittene Funktionen in den Klassen "vaul_design_file" und
+"vaul_library".
+
+
+
+
+
+\chapter{Implementierung}
+
+Die entwickelte Software sollte sehr allgemein einsetzbar sein und
+keine willkürlichen Einschränkungen enthalten, die für MSIPC
+orientierte Anwendungen vielleicht sinnvoll sind.
+
+Da der Parser nur ein Baustein für einen kompletten Compiler ist,
+wurde er in Form einer \C++ Klassensammlung implementiert. Dabei wurde
+auf eine saubere Umsetzung eines Prinzips der objektorientierten
+Programmierung geachtet: Alle Daten sind in Objekten ("struct"s)
+enthalten. Dadurch werden in der library globale Variablen komplett
+vermieden und die Anwendung der Klassen für unvorhergesehene Aufgaben
+erleichert (z.B. mehr als ein Parser in einem Programm,
+multithreading). Andererseits wurden keine der ``fortgeschrittenen''
+Möglichkeiten von \C++ wie namespaces, exceptions, dynamic casts
+usw. verwendet. Mit der Festlegung auf \C++ sind auch alle Benutzer
+der Klassensammlung auf \C++ festgelegt.
+
+Als Betriebssystem wurde Unix gewählt und einige Aspekte der
+Implementierung sind auch sehr Unix-spezifisch.
+
+\bigskip\noindent
+Der Quelltext umfasst mehrere Teile:
+\begin{description}
+\item [libutil] ist eine kleine Sammlung von Hilfsfunktionen in C.
+\item [libvaul] ist die Sammlung der \C++ Klassen, die den Parser enthalten.
+\item [ctree] ist ein Werkzeug, das aus knappen Knotenbeschreibungen eine
+              entsprechende \C++ Klassenhierarchie generiert.
+\item [vau, v2c] sind zwei Beispielprogramme, die zeigen, wie aus VHDL C
+                 werden kann.
+\end{description}
+
+{\catcode`\<=12\catcode`\>=12
+\begin{figure}[htbp]
+\hbox to \textwidth {\hss\input{vaultree.eepic}\hss}
+\caption{Die Klassenhierarchie von \texttt{libvaul}.}
+\end{figure}}
+
+\section{Allgemeine Hilfsfunktionen}
+
+"libutil" ist eine kleine Sammlung von einfachen C-Routinen aus folgenden
+Gebieten:
+\begin{description}
+\item [Fehlermeldungen.] Es gibt simple Funktionen zur Ausgabe von
+      Fehlermeldungen zusammen mit dem Programmnamen nach "stderr",
+      wahlweise mit anchließendem Programmende oder ``core dump''.
+\item [Speicherverwaltung.] "xmalloc", "xrealloc" und "xstrdup"
+      entsprechen "malloc", "re\-alloc" und "strdup". Bei Speichermangel
+      beenden sie allerdings das Programm mit einer passenden
+      Fehlermeldung. "asprintf" entspricht "sprintf", reserviert aber
+      den nötigen Speicherplatz für den Ergebnisstring selbst.
+\item [Shellmagic.] Es gibt Funktionen zum Ausführen von beliebigen
+      Shellkommandos in beliebigen Shells, die die Ausgabe des
+      Kommandos als String zurrückliefern. Auf diese Weise können
+      einfach Umgebungsvariablen und andere Shellkonstrukte in Strings
+      expandiert werden.
+\end{description}
+
+Die Funktionen sind alle völlig unabhängig vom Rest des Parsers und können
+(und werden) auch in anderen Programmen eingesetzt.
+
+
+\section{Fehlerverwaltung}
+
+Klassen, deren Operationen fehlschlagen können und die Fehlermeldungen
+produzieren möchten, sind von "vaul_error_source" abgeleitet.
+"vaul_error_source" kann eine Fehlermeldung speichern und sie nach
+Verlangen auch ausgeben. Fehlermeldungen bestehen aus zwei Teilen:
+einem numerischen Fehlercode, der die Art des Fehlers beschreibt (u.a
+alle "errno" Werte) und einer für Menschen besser verständlichen
+textuel\-len Beschreibung des Problems (z.B: "std.vaul: no such file
+or directory"). In dieser textuellen Beschreibung ist in der Regel
+mehr Information enthalten als in dem Fehlercode.
+
+Viele Funktionen von Klassen, die diesen Mechanismus benutzen, kehren
+bei bereits gesetzten Fehlerstatus sofort zurück, ohne den Zustand des
+Objekts zu verändern und zeigen nach außen auch nur durch einen
+geänderten Fehlerstatus des Objekts an, daß etwas schiefgegangen
+ist. Dadurch kann sich die aufrufende Funktion in vielen Fällen ein
+Überprüfen des Erfolgs bei allen Funktionsaufrufen sparen. Z.B. könnte
+zuerst ohne Rücksicht auf Fehler in ein "vaul_binfile" geschrieben
+werden und zum Schluß erst überprüft werden, ob alles gutgegangen ist.
+
+\begin{code}
+\c{Fehlermeldungen bestehen aus einem Code, der den Fehler grob einordnet,}
+\c{und einem String als genauere Fehlerbeschreibung.}
+\c{}  
+enum \{
+    vhdlerr_first_error = -5000,
+
+    \c{Allgemeine Fehler}
+    vhdlerr_not_implemented,
+      \c{Übergangsweise gibt's die gewünschte Funktionalität leider}
+      \c{nicht; komm' später noch mal wieder.}
+    vhdlerr_usage,
+      \c{Funktion im falschen Kontext aufgerufen, Dein Fehler}
+
+    \c{Datei Fehler}
+    vhdlerr_timeout,
+      \c{Die Datei ist durch andere Programme blockiert}
+    vhdlerr_eof,
+      \c{Dateiende erreicht, obwohl noch was kommen sollte}
+
+    \c{Parser Fehler}
+    vhdlerr_errors_detected,
+      \c{Die gelesene VHDL Datei war nicht ganz fehlerfrei}
+    
+    \c{Library Fehler}
+    vhdlerr_lib_corrupt,
+      \c{Die Library ist nicht in Ordnung}
+    vhdlerr_out_of_date,
+      \c{Ein Verweis zeigt auf etwas, das sich inzwischen geändert hat}
+    vhdlerr_frozen
+      \c{Library ist gefroren}
+
+    \c{und alle \t{errnos}, also \t{ENOENT}, \t{EPERM}, ...}
+\};
+
+\c{\t{vaul_error_source} dient zum Speichern von Fehlermeldungen}
+\c{und wird als Basis für alle Klassen verwendet die}
+\c{Fehler erzeugen.}
+\c{}
+struct vaul_error_source \{
+
+    vaul_error_source();
+    virtual \~vaul_error_source();
+
+    bool is_error();
+      \c{Ist in der Vergangenheit ein Fehler aufgetreten?}
+
+    int get_error();
+      \c{ein Fehlercode von oben}
+
+    char *get_error_desc()
+      \c{beschreibt den Fehler genauer}
+
+    void print_err(FILE *f = stderr, char *msg = NULL);
+    void print_err(char *msg);
+      \c{gibt die Fehlermeldung zusammen mit dem Programmnamen}
+      \c{und \t{msg} auf \t{f} (oder \t{stderr}) aus.}
+
+protected:
+    ...
+\};
+\end{code}
+
+\section{Speicherverwaltung}
+
+Bei objektorientierten Programmen und besonders bei solchen, die viele
+kleine "struct"s anlegen und stark miteinander über Zeiger verknüpfen,
+ist eine automatische Garbage Collection sehr wünschenswert. Da \C++
+so etwas (noch) nicht standardmäßig zur Verfügung stellt, wurde die
+Speicherverwaltung auf zwei Arten etwas diszipliniert:
+\begin{description}
+\item [Referenzzählung.] Für einige der Klassen zur Verwaltung von 
+      <design units> werden die auf sie gerichteten Zeiger
+      explizit mitgezählt, und erst wenn die letzte Referenz aufgelöst
+      worden ist, werden sie tatsächlich vernichtet. Die Klasse
+      "vaul_ref" dient als Basisklasse für alle diese Klassen. Alle
+      Teile des Programms müssen sich an die speziellen Konventionen
+      dieser Art von Garbage Collection halten.
+      \begin{code}
+\c{\t{vaul_ref} zählt mit, wie viele Referenzen auf \t{this} irgendwo da}
+\c{draussen sind.}
+\c{}
+struct vaul_ref \{
+
+    vaul_ref();
+      \c{Initialisiert \t{ref_count} mit 1.}
+
+    virtual \~vaul_ref();
+      \c{Beschwert sich, wenn \t{ref_count != 0}.}
+
+    void release();
+      \c{Registriert, daß es eine Referenz weniger gibt.}
+      \c{Wenn \t{ref_count == 0} wird, gibt es ein \t{delete this}.}
+    
+    void ref();
+      \c{Registriert, daß es eine Referenz mehr gibt.}
+
+    unsigned int ref_count;
+      \c{Die Anzahl der Referenzen. Handle with care.}
+\};
+     \end{code}
+
+\item [Speicherpools.] Ein großes Problem für Referenzen zählende
+      Garbage Collection sind zyklische Referenzen. Sie kann für
+      allgemeine Graphen wie den erzeugten Syntaxgraphen nicht benutzt
+      werden. Daher werden die Knoten, die zu einem Teilgraphen
+      gehören, kollektiv zusammen mit ihrer "vaul_design_unit"
+      verwaltet. Alle diese Knoten werden in Speicher aus einem
+      "vaul_mempool" angelegt. Dieser Speicher wird komplett
+      freigegeben, wenn die letzte Referenz auf die zugehörige
+      "vaul_design_unit" verschwindet.
+      \begin{code}
+\c{\t{vaul_memregion} hält beliebigen Speicher zusammen, der}
+\c{vom Destruktor freigegeben wird.}
+\c{}
+struct vaul_memregion \{
+
+    vaul_memregion();
+    \~vaul_memregion();
+
+    bool contains(void *mem);
+      \c{Ermittelt, ob \t{mem} irgendwo innerhalb eines Blockes}
+      \c{liegt, der zu dieser \t{vaul_memregion} gehört.}
+
+    struct block \{
+        block *link;
+        size_t size;
+        char  mem[0];
+    \} *blocks;
+\};
+
+\c{\t{vaul_mempool} kann Speicher besorgen, der automatisch mit dem}
+\c{\t{vaul_mempool} zusammen freigegeben wird.}
+\c{}
+struct vaul_mempool : protected vaul_memregion \{
+
+    vaul_mempool();
+    \~vaul_mempool();
+      \c{Gibt allen gemerkten Speicher frei.}
+
+    void *alloc(size_t size);
+      \c{Besorgt \t{size} Bytes Speicher und merkt ihn sich.}
+
+    void store(vaul_memregion *r);
+    void store(vaul_memregion \&r);
+      \c{Transferiert allen gemerkten Speicher nach \t{r} und}
+      \c{vergisst ihn.}
+
+    bool contains(void *mem)
+      \{ return vaul_memregion::contains(mem); \}
+
+private:
+   ...
+\};
+
+inline void *operator new(size_t size, vaul_mempool *pool)
+ \{ return pool->alloc(size); \}
+
+inline void *operator new(size_t size, vaul_mempool \&pool)
+ \{ return pool.alloc(size); \}
+
+\c{\t{vaul_stringpool} besorgt Speicher für Strings und vermeidet}
+\c{Duplikate.}
+\c{}
+struct vaul_stringpool : private vaul_mempool \{
+
+    vaul_stringpool();
+    \~vaul_stringpool();
+
+    const char *add(const char *str);
+      \c{Fügt \t{str} zum Pool hinzu, falls es noch nicht drin}
+      \c{ist. Strings mit gleichem Inhalt führen zu gleichen}
+      \c{Rückgabewerten.}
+
+    ...
+\};
+	  \end{code}
+\end{description}
+
+
+\section{Vom VHDL-Quelltext zum Syntaxgraphen}
+
+Die Klasse "vaul_design_file" beherbergt den Lexer und den
+Parser. Sowohl der Lexer als auch der Parser sind in Klassen gekapselt
+("vaul_lexer" und "vaul_parser").
+
+Obwohl die VHDL Grammatik im <LRM> nicht kontextfrei ist, konnte für
+die Erstellung des Parsers auf fertige, für LALR(1)
+Parser\footnote{Ein LALR(1) Parser ist ein ``Look Ahead'' LR Parser
+mit einem Lookahead-Token, das L von LR steht für eine Abbarbeitung
+der Eingabe von ``links nach rechts'', das R steht für die Bildung
+einer Rechtsableitung in umgekehrter Reihenfolge; \cite[Kapitel
+4.7]{asu}} geeignete Grammatiken zurückgegriffen werden. Als Werkzeuge
+standen neben dem allgegenwärtigen Paar "lex"/"yacc" auch noch die
+Programme der ``Compiler Construction Toolbox'' und die
+GNU-Versio\-nen der Standard-Unix-Werkzeuge, "flex"/"bison", zur
+Auswahl. Um allerdings das Ziel zu erreichen, auch Lexer und Parser in
+einer Klasse zu kapseln, mußten die Tools in der Lage sein,
+wiedereintrittsfähigen Code ohne globale Variablen zu
+erzeugen. Insbesondere die Kommunikation zwischen Lexer und Parser
+durfte nicht über globale Variablen ablaufen. Nur "flex" und "bison"
+erfüllten diese Bedingung auf den ersten Blick, daher wurden sie zur
+Generierung des Lexers und des Parsers benutzt.
+
+"flex" \cite{flex} kann direkt eine \C++ Klasse generieren, die den
+Lexer enthält und "bison" \cite{bison} kann leicht mit einem Macro
+überredet werden, die Parserfunktion als Klassenfunktion anzulegen.
+
+\begin{code}
+\c{\t{vaul_design_file} kann textuelle VHDL Beschreibungen}
+\c{in \t{vaul_design_units} umwandeln.}
+\c{}
+struct vaul_design_file : vaul_error_source \{
+
+    vaul_design_file(char *filename, FILE *f = NULL,
+                     bool verbose = false);
+      \c{Öffnet die Datei \t{filename} zum Lesen, wenn \t{f == NULL}.}
+      \c{Sonst wird aus \t{f} gelesen und \t{filename} wird nur in}
+      \c{Fehlermeldungen verwendet.}
+
+    \~vaul_design_file();
+
+    vaul_design_unit *read_design_unit(vaul_libpool *pool);
+      \c{Liest eine \s{design unit}. Meldungen über fehlerhaften}
+      \c{VHDL-Text werden nach \t{stderr} ausgegeben und mitgezählt.}
+      \c{Siehe \t{sync_vaul_errors()}.}
+      \c{\t{WORK} im VHDL-Text bezieht sich auf \t{pool->worklib} und}
+      \c{andere benötigte VHDL-Libraries werden durch \t{pool} gefunden.}
+      \c{Im Fehlerfall oder am Ende der Datei wird \t{NULL} zurückgegeben.}
+
+    ...
+
+    bool insert(vaul_libpool *pool);
+      \c{Liest alle Design Units und fügt sie in \t{pool->worklib} ein.}
+
+    ...
+
+private:
+    ...
+\};
+\end{code}
+
+\begin{code}
+\c{\t{vaul_yystype} hält den semantischen Wert von Token}
+\c{}
+union vaul_yystype \{
+    Id id;
+    nTree tree;
+    RangeDirection dir;
+    ObjectClass obj_class;
+    Mode mode;
+    SignalKind signal_kind;
+    char *text;
+    bool boolean;
+\};
+
+\c{\t{vaul_yyltype} hält Informationen über die Position eines Tokens}
+\c{}
+struct vaul_yyltype \{
+    int first_line,
+        last_line,
+        first_column,
+        last_column;
+    char *text;
+
+    operator int () \{ return first_line; \}
+\};
+
+bool is_abstract_literal(char *tok);
+bool is_integer_literal(char *tok);
+bool is_real_literal(char *tok);
+bool is_character_literal(char *tok);
+bool is_string_literal(char *tok);
+bool is_bitstring_literal(char *tok);
+
+\c{\t{vaul_lexer} enthält den von \t{flex++} generierten lexikalischen}
+\c{Analysator.}
+\c{}
+struct vaul_lexer : public yyFlexLexer, vaul_error_source \{
+
+    vaul_lexer(char *filename, FILE *f = NULL);
+      \c{Öffnet die Datei \t{filename} zum Lesen, wenn \t{f == NULL}.}
+      \c{Sonst wird aus \t{f} gelesen und \t{filename} wird nur in}
+      \c{Fehlermeldungen verwendet.}
+
+    \~vaul_lexer();
+
+    int lex(vaul_yystype *val, vaul_yyltype *loc);
+      \c{Sucht das nächste Token und füllt \t{*val} und \t{*loc} mit}
+      \c{passenden Werten.}
+
+    ...
+
+private:
+    ...
+\};
+\end{code}
+
+\begin{code}
+\c{\t{vaul_parser} enthält den von Bison erzeugten Parser}
+\c{}
+struct vaul_parser : vaul_error_source, vaul_error_printer \{
+
+    vaul_parser(vaul_lexer *l);
+      \c{Erzeugt einen Parser, der aus \t{l} liest.}
+
+    \~vaul_parser();
+
+    vaul_design_unit *parse(vaul_libpool *p);
+      \c{Versucht, eine komplette \\s{design unit} zu lesen}
+      \c{und konstruiert den abstrakten Baum.}
+
+    ...
+
+private:
+    ...
+\};
+\end{code}
+
+\section{Syntaxgraphen mit {\tt ctree}}
+
+Die vielen Knotentypen für den Syntaxgraphen werden in einer
+speziellen Notation beschrieben, aus der dann durch ein Werkzeug
+\C++-Code erzeugt wird. Die ``Compiler Construction Toolbox'' enthält
+auch für diesen Zweck passende Werkzeuge. Aber keines dieser Werkzeuge
+war flexibel genug, die Anforderungen zu erfüllen: sie konnten weder
+für \C++ Klassen geeigneten Code erzeugen noch Teile des kompletten
+Graphen einzeln schreiben oder lesen. Daher wurde ein neues Werkzeug
+entwickelt, das allen Anforderungen genügte, "ctree". Es verwirklicht
+aber nur die für "libvaul" notwendigen Techniken.
+
+Die Hierarchie der Knotentypen wird dabei auf eine parallele \C++
+Klassenhierarchie abgebildet. Die Basisklasse dieser Klassenhierarchie
+erhält Funktionen zur Typ\-über\-prü\-fung und zum Durchlaufen, Lesen
+und Schreiben eines Graphen.
+
+Zusätzlich zu den Knotenklassen stellt "ctree" eine allgemeine "struct
+graph_run\-ner" zur Verfügung. Diese Klasse wird während des
+Durchlaufens (also auch während des Lesens und Schreibens) benötigt,
+um zu entscheiden, ob ein Knoten schon besucht wurde, und ob er zu dem
+betrachteten Teilgraphen gehört. Desweiteren implementiert ein
+"graph_runner" die grundlegenden Funktionen zum Speichern.  Durch
+Überladen der entsprechenden Funktionen kann dann für verschiedene
+Anwendungen genau spezifiziert werden, was ein Teilgraph ist und wie
+genau gelesen und geschrieben wird. Eine solche Spezialisierung ist
+die Klasse "vaul_graph_runner", die die Anforderungen des speziellen
+VHDL Syntaxgraphen realisiert.
+
+Im Speicher werden die Knoten des Graphen durch \C++ Objekte und die
+(gerichteten) Kanten durch Zeiger dargestellt. Um den Graphen in eine
+für Dateien geeignete Form zu bringen, werden alle Knoten auf eine
+bestimmte Weise durchlaufen und durchnumeriert. Der dadurch
+definierte Spannbaum wird linear gespeichert, und die noch nicht
+erfaßten Kanten (Zeiger) können mit Hilfe der Nummern der Knoten, auf
+die sie zeigen, identifiziert werden. Wie genau das geschieht,
+entscheidet der verwendete "graph_runner", der auch für die
+Bewältigung von Querverweisen zwischen Teilgraphen zuständig ist, die
+nicht zusammen gespeichert werden.
+
+\section{VHDL Units}
+Die Klasse "vaul_design_unit" ist die Schnittstelle zwischen dem
+Syntaxgraphen und der <design unit> Verwaltung. Die eigentliche Arbeit
+des Lesens und Schreibens des Graphen in binärer Form übernehmen die
+von "ctree" erzeugten Routinen in Zusammenarbeit mit einem
+"vaul_binfile" und einem "vaul_graph_runner".
+
+Ein "vaul_binfile" ist eine einfache Kapselung eines "FILE*" mit
+zusätzlichen Mechanismen zum Sperren der Datei für andere Programme, um
+die Konsistenz der <design library> zu gewährleisten. Der
+"vaul_graph_runner" implementiert die Einteilung der Knoten eines
+Graphen in Teilgraphen anhand der Zugehörigkeit zu einer bestimmten
+"vaul_design_unit" und benutzt ein "vaul_binfile", um die Knoten
+tatsächlich zu speichern. Querverweise auf andere Knoten werden in der
+Form ("lib",~"unit",~"node") gespeichert. "lib" identifiziert die
+"vaul_library", in der der Knoten ist, über deren Namen; "unit"
+identifiziert seine "vaul_design_unit" über deren Position im
+Inhaltsverzeichnis der "vaul_library", und "node" ist die beim
+Durchlaufen des Graphen vergebene Nummer. Dieses Schema ist sehr
+empfindlich gegenüber unbemerkten Änderungen von "vaul_design_unit"s,
+auf die verwiesen wird (aber nicht gegenüber Änderungen von
+"vaul_design_unit"s, auf die nicht verwiesen wird). Daher werden alle
+"vaul_design_unit"s zusätzlich durch Versionsnummern abgesichert. Mit
+dieser zerbrechlichen Implementierung wird auch die Forderung des
+<LRM> erfüllt, daß alle <design units> in einer <design library>
+verworfen werden müssen, die von einer <design unit> abhängen, die
+sich geändert hat.
+
+\begin{code}
+\c{\t{vaul_design_unit} repräsentiert eine \s{design unit} als}
+\c{abstrakten Graphen und kann ihn auch lesen und speichern.}
+\c{}
+struct vaul_design_unit : vaul_ref \{
+
+    vaul_design_unit(char *name = NULL,
+                     char *source_filename = NULL);
+    \~vaul_design_unit();
+
+    char *get_name()        \{ return name; \}
+    char *get_source()      \{ return source; \}
+    time_t get_ctime()      \{ return ctime; \}
+
+    bool is_older_than(vaul_design_unit *du);
+
+    sScope *tree;
+      \c{Der abstrakte Syntaxbaum (eigentlich ein Graph).}
+
+    ...
+
+    vaul_memregion mem;
+      \c{Hält den Speicher von \t{tree}.}
+
+    void write(vaul_binfile *f);
+      \c{Schreibt alles nach \t{f}, Fehlermeldungen tauchen in \t{f} auf.}
+
+    void read(vaul_binfile *f, vaul_libpool *p);
+      \c{Liest alles aus \t{f}, Referenzen werden durch \t{vaul_libraries}}
+      \c{aus \t{p} aufgelöst. Wenn \t{p == NULL} ist, wird \t{tree} nicht}
+      \c{gelesen. Fehlermeldungen tauchen in \t{f} auf.}
+
+    void print();
+      \c{Gibt \t{tree} zusammen mit \t{name}, ... nach \t{stdout} aus.}
+
+    ...
+
+private:
+    ...
+\};
+\end{code}
+
+\section{VHDL Libraries}
+
+Die Klasse "vaul_library" faßt mehrere "vaul_design_unit"s zu einer
+<design library> zusammen. Alle Graphen der "vaul_design_unit"s einer
+"vaul_library" werden in eine Datei geschrieben.
+
+Nach Beginn einer Sitzung werden neu eingefügte "vaul_design_unit"s
+zuerst in eine eigene, neue Datei geschrieben. Diese Zwischendatei
+wird zum Abschluß der Sitzung um die alten, nicht ersetzten
+"vaul_design_unit"s ergänzt und durch einfaches Umbenennen in die
+eigentliche Librarydatei verwandelt. Sollen zum Schluß der Sitzung die
+neu eingefügten "vaul_design_unit"s wieder verworfen werden, wird die
+Zwischendatei gelöscht, und die alte, bis jetzt unveränderte
+Librarydatei bleibt erhalten.
+
+\begin{code}
+\c{Ein \t{vaul_libpool} ist die einfachste und empfohlene Methode an}
+\c{\t{vaul_libraries} und \t{vaul_design_units} zu kommen.}
+\c{}
+struct vaul_libpool : vaul_error_source \{
+
+    vaul_libpool(int timeout = 30);
+    \~vaul_libpool();
+
+    int timeout;
+      \c{Die Auszeit in Sekunden für alle Operationen mit \t{vaul_libraries},}
+      \c{kann jederzeit geändert werden.}
+
+    vaul_library *get(char *name);
+      \c{liefert die \t{vaul_library} \t{lib} mit Namen \t{name}.}
+      \c{\t{lib} ist immer \t{!= NULL}, kann aber eine Fehlermeldung produziert}
+      \c{haben.}
+
+    vaul_design_unit *get(char *libname, char *unitname,
+                          bool no_tree = false);
+      \c{liefert die \t{vaul_design_unit} \t{du} mit Namen \t{unitname} aus der}
+      \c{\t{vaul_library} \t{libname}. Siehe \t{vaul_library::get}.}
+      \c{Wenn \t{no_tree == true} ist, wird der eigentliche Baum nicht gelesen.}
+
+    vaul_design_unit *get(char *libname, int unitnum,
+                          bool no_tree = false);
+      \c{dito, nur mit Nummer}
+
+    vaul_library *worklib;
+      \c{eine ausgewählte Library, in die gerade eingefügt wird.}
+      \c{Siehe \t{vaul_libpool::insert}, \t{vaul_design_file::insert}}
+
+    bool begin_session(char *name = NULL);
+      \c{Fängt eine Sitzung für die \s{working library} \t{name} an.}
+
+    void end_session(bool abort = false);
+      \c{Beendet die gerade laufende Sitzung.}
+      \c{Wenn \t{abort == true} ist, werden alle in ihr gemachten}
+      \c{Änderungen verworfen.}
+
+    void flush();
+      \c{Alle \t{vaul_libraries} in diesem pool, auf die niemand mehr}
+      \c{eine Referenz hat, werden beseitigt.}
+
+private:
+    ...
+\};
+
+\c{\t{vaul_libraries} verwalten Sammlungen von \t{vaul_design_units} auf Platte}
+\c{und im Speicher.}
+\c{Die Namen von \t{vaul_libraries} sind die Namen aus der \s{library clause},}
+\c{auf Platte können sie ganz anders heissen.}
+\c{Alle Auszeiten sind in Sekunden.}
+\c{}
+struct vaul_library : vaul_error_source, vaul_ref \{
+
+    vaul_library(char *name, int timeout);
+    \~vaul_library();
+
+    char *get_name()        \{ return name; \}
+
+    char *get_file_name();
+      \c{Der Dateiname auf Platte}
+
+    bool insert(vaul_design_unit *du, int timeout);
+      \c{Fügt \t{du} in die \t{vaul_library} ein und gibt eine}
+      \c{Erfolgsmeldung zurück.}
+
+    bool flush(int timeout);
+      \c{Macht alle Einfügungen permanent und gibt Erfolgsmeldung}
+      \c{zurück. \t{flush} (oder \t{abort}) muß aufgerufen werden,}
+      \c{nachdem eingefügt wurde.}
+
+    bool abort(int timeout);
+      \c{Ignoriert den Fehlerstatus, verwirft alle Änderungen und}
+      \c{löscht die Zwischendatei.}
+
+    vaul_lib_stats *get_stats();
+      \c{liefert Statistiken zu \t{this}, \t{NULL} im Fehlerfall.}
+
+    vaul_design_unit *get(char *name, vaul_libpool *pool);
+      \c{liefert die \t{vaul_design_unit} mit Namen \t{name},}
+      \c{falls vorhanden, oder \t{NULL} wenn nicht und im Fehlerfall.}
+      \c{\t{vaul_libraries}, die von \t{name} gebraucht}
+      \c{werden, werden über \t{pool} geladen. Wenn \t{pool == NULL} ist,}
+      \c{wird der Baum von \t{name} nicht geladen, wohl aber die}
+      \c{anderen Sachen (wie sourcename, ctime, ...).}
+
+    vaul_design_unit *get(int label, vaul_libpool *);
+      \c{dito, Identifikation über Index.}
+
+    ...
+
+private:
+    ...
+\};
+
+\c{\t{vaul_lib_stats} enthält Statistiken über eine \t{vaul_library}}
+\c{}
+struct vaul_lib_stats \{
+
+    vaul_lib_stats();
+    \~vaul_lib_stats();
+
+    struct stat \{
+        char *name;
+        vaul_design_unit *du;
+        char *source;
+        time_t ctime;
+    \};
+
+    int n_entries;
+    stat *stats;
+      \c{für jede \t{vaul_design_unit} ein Eintrag, insgesamt \t{n_entries} Stück.}
+\};
+\end{code}
+
+
+
+
+
+\appendix
+\chapter{Vier Beispiele}
+
+  Sowohl für die den algorithmischen Teil von VHDL (<sequentiell
+statements>, <variables>, <subprograms>, <packages>, \dots) und den
+Teil für die Hardwaresimulation (<concurrent statements>, <signals>,
+<processes>, <architectures>, \dots) wird ein Beispiel gezeigt. Aus
+dem kompletten VHDL-Text werden einige Abschnitte ausgewählt und die
+daraus erzeugten Syntaxgraphen veranschaulicht. Die Bilder zeigen
+dabei nicht alle Knoten vollständig, sondern nur die Elemente, die für
+den Zusammenhang wichtig sind. Wenn für einen Knoten gar keine
+Elemente gezeigt werden, so heißt das in der Regel, daß er für einen
+ganzen, sehr komplizierten Graphen steht. Dieser Graph ist einfach zu
+groß, um ihn auch noch im Bild unterzubringen.
+
+Das dritte Beispiel zeigt ein typisches Programm, um <design
+libraries> zu verwalten. Als letztes Beispiel dient "v2c.cc", ein
+Programm, das Teile von VHDL nach C umsetzt.
+
+\section{Euklids Algorithmus}
+
+\begin{code}
+package beispiel is
+
+  function gcd ( n, m : integer ) return integer;
+  -- \r{return the greatest common devisor of \t{n} and \t{m}}
+
+end package beispiel;
+
+
+package body beispiel is
+
+  function gcd ( n, m : integer ) return integer is
+    variable u, v, t : integer;
+  begin
+    u := m;
+    v := n;
+    while u > 0 loop
+      if u < v then
+        t := u; u := v; v := t;
+      end if;
+      u := u - v;
+    end loop;
+    return v;
+  end function gcd;
+
+end package body beispiel;
+\end{code}
+
+Jede <design unit> (die selbst ein "Scope" ist) ist in einen
+``globalen'' "Scope" eingebettet, der die <context clauses> enthält,
+die zu der <design unit> gehören. Auch die impliziten <context clauses>
+werden explizit in den Graphen aufgenommen.
+
+\begin{code}
+-- \r{implizite \s{context clauses}:}
+-- library std, work;
+-- use std.standard.all;
+
+package beispiel is
+  \dots
+end package beispiel;
+\end{code}
+\npic{stud.bsp.1}
+
+So wie im obigen Bild, haben alle "Declaration"s eine Verbindung zu dem
+"Scope", der sie enthält. Um die Übersichtlichkeit zu retten, werden sie
+aber in den folgenden Bildern weggelassen.
+\begin{code}
+package beispiel is
+  function gcd ( n, m : integer ) return integer;
+end package beispiel;
+\end{code}
+\npic{stud.bsp.2}
+
+Die formalen Parameter von "gcd" ("Interface" Elemente) sind "Declaration"s
+und als solche auch in der "first_decl"/"next_decl" Liste von "gcd"
+aufgelistet, aber nicht unbedingt in der richtigen Reihenfolge.
+
+Der Graph, der den Typ "integer" beschreibt, stammt tatsächlich aus
+einer anderen <design unit> und wahrscheinlich auch aus einer anderen
+<design library>.
+\begin{code}
+type INTEGER is -17 to 42;
+\end{code}
+\npic{stud.bsp.3}
+
+Die <declarative region> eines <packages> umfaßt sowohl das <package>
+als auch den zugehörigen <package body>. Daher wird ein "PackageBody"
+über die "continue" Verbindung an das zugehörige "Package" gehängt.
+Entsprechend wird der "SubprogramBody" an die "Function" gehängt.
+\begin{code}
+package body beispiel is
+  function gcd ( n, m : integer ) return integer is
+    \dots
+  end gcd;
+end package body beispiel;
+\end{code}
+\npic{stud.bsp.4}
+
+Variablen Deklarationen werden wie alle "Declaration"s im
+umschließenden "Scope" aufgelistet. Zugriffe auf "Object"s ind
+Ausdrücken sind immer indirekt, um später auch Zugriffe auf Array- und
+Recordelemente zu erlauben.
+\begin{code}
+function gcd ( n, m : integer ) return integer is
+  variable u, v, t : integer;
+begin
+  u := m;
+  \dots
+end gcd;
+\end{code}
+\npic{stud.bsp.6}
+
+Sämtliche Operatoren ("+", "-", \dots) sind in VHDL Namen von implizit
+deklarierten Funktionen und werden deshalb --- genau wie Aufrufe von
+explizit deklarierten Funktionen wie "gcd" --- auf "FunctionCall"s
+in Ausdrücken abgebildet.
+\begin{code}
+while u > 0 loop
+  \dots
+end loop;
+\end{code}
+\npic{stud.bsp.5}
+
+
+\section{Halbaddierer}
+
+\begin{code}
+entity and_gate is
+  generic ( delay : delay_length := 2ns );
+  port ( i1, i2 : in bit;
+         o      : out bit );
+end;
+
+entity xor_gate is
+  generic ( delay : delay_length := 2ns );
+  port ( i1, i2 : in bit;
+         o      : out bit );
+end;
+
+architecture behaviour of and_gate is
+begin
+  o <= i1 and i2 after delay;
+end;
+
+architecture behaviour of xor_gate is
+begin
+  o <= i1 xor i2 after delay;
+end;
+
+package gates is
+
+  component and_gate is
+      port ( i1, i2 : in bit;
+             o      : out bit );
+  end component;
+
+  component xor_gate is
+      port ( i1, i2 : in bit;
+             o      : out bit );
+  end component;
+
+  constant infinity : real;
+
+  component bill is
+      generic ( greed : real := infinity);
+  end component;
+
+end;
+
+
+entity half_adder is
+  port ( x, y : in bit;
+         s, c : out bit );
+end;
+
+architecture structure of half_adder is
+
+  use work.gates.all;
+
+  for l1 : xor_gate use entity work.xor_gate(behaviour)
+                    port map ( i1, i2, o );
+
+  for l2 : and_gate use entity work.and_gate(behaviour)
+                    port map ( i1, i2, o );
+
+begin
+  l1: xor_gate port map ( x, y, s );
+  l2: and_gate port map ( x, y, c );
+end;
+
+configuration fast_half_adder of half_adder is
+
+  for structure
+    for all : and_gate
+        generic map ( 1ns );
+    end for;
+    for all : xor_gate
+        generic map ( 1ns );
+    end for;
+  end for;
+
+end;
+\end{code}
+
+Die <ports> und <generics> von <entities> sind genau wie die formalen
+Parameter eines <subprograms> als "Interface"s aufgelistet.
+\begin{code}
+package standard is
+  \dots
+  type time is range {\rm ?} to {\rm ?} units
+    fs;
+    ps = 1000 fs;
+    ns = 1000 ps;
+  end;
+
+  subtype delay_length is time range 0 fs to{\rm ?} fs;
+  \dots
+end;
+
+entity and_gate is
+  generic ( delay : delay_length := 2ns );
+  \dots
+end;
+\end{code}
+\npic{stud.bsp.7}
+
+<Concurrent statements> werden soweit es geht durch ihren äquivalenten
+<process> dargestellt.
+\begin{code}
+architecture behaviour of and_gate is
+begin
+  o <= i1 and i2 after delay;
+end;
+\end{code}
+\npic{stud.bsp.8}
+
+Bei der strukturellen Beschreibung einer <architecture> haben die
+<component instantiations> eine direkte Verbindung zu der
+passenden <configuration specification>, wenn überhaupt.
+\begin{code}
+architecture structure of half_adder is
+  \dots
+  for l2 : and_gate use entity work.and_gate(behaviour)
+                    port map ( i1, i2, o );
+begin
+  \dots
+  l2: and_gate port map ( x, y, c );
+end;
+\end{code}
+\npic{stud.bsp.9}
+
+In einer <configuration> haben die <component configurations> eine Liste
+der zugehörigen <component instantiations>.
+\begin{code}
+configuration fast_half_adder of half_adder is
+  for structure
+    for all : and_gate
+        generic map ( 1ns );
+    end for;
+    \dots
+  end for;
+end;
+\end{code}
+\npic{stud.bsp.10}
+
+
+\section{Library Verwaltung}
+
+\begin{code}
+/*
+**  VAU   VHDL Analyst \& Utility
+**
+*/
+
+\c{\t{vaul/vaul.h} enthält alle Deklarationen für die Benutzung der}
+\c{\t{libvaul} Klassensammlung.}
+\c{}
+#include <vaul/vaul.h>
+
+\c{\t{util.h} enthält die Deklarationen für \t{libutil}.}
+\c{}
+#include <util.h>
+
+#include <stdio.h>
+#include <ctype.h>
+
+void usage()
+\{
+  fprintf(stderr, "usage: %s rxt [-l lib] units ...\\n", progname);
+  exit(10);
+\}
+
+char *libname = "testlib";
+
+\c{Der zentrale Pool für \s{design libraries}.}
+\c{}
+vaul_libpool vaul;
+
+extern int optind, opterr;
+extern char *optarg;
+extern "C" int getopt(int, char *const *, const char *);
+
+bool verbose = false;
+
+int main(int argc, char *argv[])
+\{
+  int status = 0;
+
+  int opt, i;
+
+  util_init(argv);
+  opterr = 0;
+
+  while((opt=getopt(argc, argv, "l:v")) != -1) \{
+    switch(opt) \{
+    case 'l':
+      libname = optarg;
+      break;
+    case 'v':
+      verbose = true;
+      break;
+    case '?':
+      usage();
+      break;
+    \}
+  \}
+
+  if(optind >= argc || strlen(argv[optind]) != 1)
+    usage();
+
+  char action = argv[optind][0];
+
+  switch(action) \{
+
+  case 'r':     \c{Ersetze die \s{design units} in \t{libname}}
+                \c{durch neue Versionen in den \s{design files}}
+
+    if(vaul.begin_session(libname)) \{
+      for(i = optind+1; i < argc \&\& !vaul.is_error(); i++) \{
+        vaul_design_file df(argv[i], NULL, verbose);
+        if(!df.insert(\&vaul)) \{
+          df.print_err(argv[i]);
+          status = 1;
+        \}
+      \}
+      vaul.end_session(status != 0);
+    \}
+    if(vaul.is_error()) \{
+      vaul.print_err();
+      status = 1;
+    \}
+    break;
+
+  case 'x':     \c{Lies ein paar \s{design units} aus \t{libname}}
+                \c{ein und zeige ihren Syntaxgraphen.}
+
+    for(i = optind+1; i < argc; i++) \{
+      vaul_design_unit *du;
+      if(isdigit(argv[i][0]))
+        du = vaul.get(libname, atoi(argv[i]));
+      else
+        du = vaul.get(libname, argv[i]);
+      if(du) \{
+        du->print();
+        du->release();
+      \} else \{
+        status = 1;
+        if(vaul.is_error()) 
+          vaul.print_err();
+        else
+          printf("%s not found in %s\\n", argv[i], libname);
+      \}
+    \}
+    break;
+
+  case 't':     \c{Liste ein paar Informationen zu allen \s{design units}}
+                \c{in \t{libname} auf.}
+
+    vaul_library *lib = vaul.get(libname);
+    vaul_lib_stats *stats = lib->get_stats();
+    if(lib->is_error()) \{
+      lib->print_err(libname);
+      status = 1;
+    \} else if(stats) \{
+      for(int i = 0; i < stats->n_entries; i++) \{
+        printf("%3d: %-20.20s", i+1, stats->stats[i].name);
+        if(stats->stats[i].du) \{
+          char buf[50];
+          time_t ctime = stats->stats[i].du->get_ctime();
+          strftime(buf, 50, "%b %d %H:%M", localtime(\&ctime));
+          printf(" %15.15s %s", stats->stats[i].du->get_source(), 
+           buf);
+        \} else
+          printf(" (can't load)");
+        printf("\\n");
+      \}
+      delete stats;
+    \} else
+      printf("no stats\\n");
+    break;
+
+  default:
+    usage();
+    break;
+  \}
+
+  return status;
+\}
+\end{code}
+
+\section{VHDL-nach-C Umsetzer}
+
+\begin{code}
+/*
+**  v2c     
+**
+*/
+
+#include <vaul/vaul.h>
+
+#include <util.h>
+#include <ctype.h>
+
+void usage()
+\{
+    fprintf(stderr, "usage: %s [-l lib] unit\\n", progname);
+    exit(1);
+\}
+
+char *libname = "testlib";
+vaul_libpool vaul(5);
+
+extern int optind, opterr;
+extern char *optarg;
+extern "C" int getopt(int, char *const *, const char *);
+
+bool emit(char *unit, char *lib);
+
+void emit(nDeclaration, int);
+void emit(nType);
+void emit(nInterface);
+void emit(nStatement, int);
+void emit(nExpr);
+void emit_decls(nScope, int);
+void emit_id(nDeclaration);
+
+bool main_seen = false;
+
+int main(int argc, char *argv[])
+\{
+    int opt;
+
+    util_init(argv);
+    opterr = 0;
+
+    while((opt=getopt(argc, argv, "l:")) != -1) \{
+        switch(opt) \{
+        case 'l':
+            libname = optarg;
+            break;
+        case '?':
+            usage();
+            break;
+        \}
+    \}
+
+    if(optind >= argc || argc-1 > optind)
+        usage();
+
+    char *unit = argv[optind];
+
+    printf("/* generated by v2c \\n*/\\n\\n");
+    printf("#include <stdio.h>\\n");
+
+    bool success = emit("std", "standard") \&\& emit(libname, unit);
+
+    if(success \&\& main_seen) \{
+        printf("\\nint main(int argc, char **argv)\\n\{\\n");
+        printf("  printf(\\"-> %%d\\\\n\\","
+               " v_main(atoi(argv[argc-1])));\\n");
+        printf("\}\\n");
+    \}
+
+    return success? 0 : 1;
+\}
+
+bool emit(char *lib, char *unit)
+\{
+    vaul_design_unit *du = vaul.get(lib, unit);
+    if(du) \{
+        emit(du->tree, 0);
+        du->release();
+        return true;
+    \} else \{
+        if(vaul.is_error())
+            vaul.print_err();
+        else
+            fprintf(stderr, "%s not found in %s\\n", unit, lib);
+        return false;
+    \}
+\}
+
+char *spaces(int l)
+\{
+    if(l > 30)
+        l = 30;
+    return "                              " + (30-l);
+\}
+
+void emit_id(nDeclaration d)
+\{
+    printf("v_");
+    if(d->id) \{
+        for(char *cp = d->id; *cp; cp++)
+            if(isalnum(*cp))
+                putchar(*cp);
+            else
+                putchar('_');
+        if(d->is(nkEnumLiteral))
+            emit_id(nEnumLiteral(d)->type);
+        else if(d->is(nkSubprogram) \&\& strcmp(d->id, "main")) \{
+            for(nInterface i = nSubprogram(d)->first_formal; i;
+             i = i->next_element)
+                emit_id(i->type);
+            if(d->is(nkFunction)) \{
+                printf("_");
+                emit_id(nFunction(d)->return_type);
+            \}
+        \}
+        if(!strcmp(d->id, "main"))
+            main_seen = true;
+    \} else
+        printf("-anonymous");
+\}
+
+void emit_decls(nScope s, int l)
+\{
+    if(s->continued)
+        emit_decls(s->continued, l);
+    for(nDeclaration d = s->first_decl; d; d = d->next_decl)
+        emit(d, l);
+\}
+
+void emit_def(nType t)
+\{
+    while(t->is(nkSubType)) \{
+        nType b = nSubType(t)->base;
+        if(b->id) \{
+            emit_id(b);
+            return;
+        \}
+        t = b;
+    \}
+
+    if(t->is(nkIntegerType) || t->is(nkPhysicalType))
+        printf("int");
+    else if(t->is(nkFloatingType))
+        printf("double");
+    else if(t->is(nkEnumType)) \{
+        printf("enum \{ ");
+        for(nEnumLiteral el = nEnumType(t)->first; el;
+            el = el->next) \{
+            emit_id(el);
+            if(el->next)
+                printf(", ");
+        \}
+        printf(" \}");
+    \} else
+        printf("/* %s */", t->type_id());
+\}
+
+void emit(nDeclaration d, int l)
+\{
+    if(d->is(nkSubprogramBody)) \{
+        nSubprogram s = nSubprogram(nScope(d)->continued);
+        printf("\\n");
+        if(s->is(nkFunction))
+            emit(nFunction(s)->return_type);
+        else
+            printf("void");
+        printf(" ");
+        emit_id(s);
+        printf("(");
+        for(nInterface i = s->first_formal; i;
+            i = i->next_element) \{
+            emit(i);
+            if(i->next_element)
+                printf(", ");
+        \}
+        printf(")\\n\{\\n");
+        emit_decls(nSubprogramBody(d), 2);
+        if(nScope(d)->first())
+            printf("\\n");
+        emit(nSubprogramBody(d)->stats, 2);
+        printf("\}\\n");
+    \} else if(d->is(nkVariable)
+            ||(d->is(nkConstant)
+              \&\& nConstant(d)->initial_value != NULL)) \{
+        printf("%s", spaces(l));
+        emit(nObject(d)->type);
+        printf(" ");
+        emit_id(d);
+        if(nObject(d)->initial_value) \{
+            printf(" = ");
+            emit(nObject(d)->initial_value);
+        \}
+        printf(";\\n");
+    \} else if(d->is(nkConstantBody)) \{
+        printf("%s", spaces(l));
+        nConstant c = nConstantBody(d)->decl;
+        emit(c->type);
+        printf(" ");
+        emit_id(c);
+        printf(" = ");
+        emit(nConstantBody(d)->initial_value);
+        printf(";\\n");
+    \} else if(d->is(nkType)) \{
+        if(d->id) \{
+            printf("%s", spaces(l));
+            printf("typedef ");
+            emit_def(nType(d));
+            printf(" ");
+            emit_id(d);
+            printf(";\\n");
+        \}
+    \} else if(d->is(nkPackage) || d->is(nkPackageBody)) \{
+        printf("\\n/* generated from %s %s */\\n\\n",
+               d->type_id(), d->idstr());
+        emit_decls(nScope(d), 0);
+    \}
+\}
+
+void emit(nType t)
+\{
+    emit_id(t);
+\}
+
+void emit(nInterface i)
+\{
+    emit(i->type);
+    printf(" ");
+    emit_id(i);
+\}
+
+void emit(nStatement s, int l)
+\{
+    if(s \&\& s->label)
+        printf("%s:\\n", s->label->id);
+
+    printf("%s", spaces(l));
+    if(s == NULL || s->is(nkNullStat))
+        printf(";\\n");
+    else if(s->is(nkReturnStat)) \{
+        if(nReturnStat(s)->value) \{
+            printf("return ");
+            emit(nReturnStat(s)->value);
+            printf(";\\n");
+        \} else
+            printf("return;\\n");
+    \} else if(s->is(nkVarAssignment)) \{
+        emit(nVarAssignment(s)->target);
+        printf(" = ");
+        emit(nVarAssignment(s)->value);
+        printf(";\\n");
+    \} else if(s->is(nkIfStat)) \{
+        nIfStat is = nIfStat(s);
+        printf("if(");
+        emit(is->cond);
+        printf(") \{\\n");
+        emit(is->then_stats, l+2);
+        printf("%s\} else \{\\n", spaces(l));
+        emit(is->else_stats, l+2);
+        printf("%s\}\\n", spaces(l));
+    \} else if(s->is(nkLoopStat)) \{
+        nLoopStat ls = nLoopStat(s);
+        if(ls->iteration_scheme->is(nkWhileScheme)) \{
+            printf("while(");
+            emit(nWhileScheme(ls->iteration_scheme)->condition);
+            printf(")");
+        \} else
+            printf("/* %s */", ls->iteration_scheme->type_id());
+        printf(" \{\\n");
+        emit(ls->stats, l+2);
+        printf("%s\}\\n", spaces(l));
+    \} else if(s->is(nkNextStat)) \{
+        if(nNextStat(s)->when) \{
+            printf("if(");
+            emit(nNextStat(s)->when);
+            printf(")\\n%s", spaces(l+2));
+        \}
+        nLoopStat l = nNextStat(s)->loop;
+        if(l->label)
+            printf("goto %s;\\n", l->label->id);
+        else
+            printf("continue;\\n");
+    \} else if(s->is(nkProcedureCallStat)) \{
+        nProcedure p = nProcedureCallStat(s)->proc;
+        emit_id(p);
+        printf("(");
+        for(nAssociation a = nProcedureCallStat(s)->first_actual;
+            a; a = a->next) \{
+            emit(a->actual);
+            if(a->next)
+                printf(", ");
+        \}
+        printf(");\\n");
+    \} else if(s->is(nkWaitStat)) \{
+        nWaitStat ws = nWaitStat(s);
+        printf("/* wait");
+        if(ws->sensitivities) \{
+            printf(" on ");
+            for(nSignalList sn = ws->sensitivities; sn;
+                sn = sn->next) \{
+                emit(sn->signal);
+                if(sn->next)
+                    printf(", ");
+            \}
+        \}
+        if(ws->condition) \{
+            printf(" until ");
+            emit(ws->condition);
+        \}
+        if(ws->timeout) \{
+            printf(" for ");
+            emit(ws->timeout);
+        \}
+        printf(" */\\n");
+    \} else
+        printf("/* XXX %s */\\n", s->type_id());
+    if(s \&\& s->next)
+        emit(s->next, l);
+\}
+
+bool is_op(char *id)
+\{
+    return id[0] == '"';
+\}
+
+char *map_bin_op(char *id)
+\{
+    if(is_op(id)) \{
+        char *op = xstrdup(id+1);
+        op[strlen(op)-1] = \verb|'\0'|;
+        if(!strcmp(op, "="))
+            op = "==";
+        else if(!strcmp(op, ":="))
+            op = "=";
+        else if(!strcmp(op, "/="))
+            op = "!=";
+        else if(!strcmp(op, "mod"))
+            op = "%";
+        else if(!strcmp(op, "or"))
+            op = "||";
+        else if(!strcmp(op, "and"))
+            op = "\&\&";
+        return op;
+    \} else
+        return NULL;
+\}
+
+char *map_un_op(char *id)
+\{
+    if(is_op(id)) \{
+        char *op = xstrdup(id+1);
+        op[strlen(op)-1] = \verb|'\0'|;
+        return op;
+    \} else
+        return NULL;
+\}
+
+void emit(nPhysicalUnit u)
+\{
+    if(u->value == NULL)
+        printf("1");
+    else \{
+        printf("%s*", u->value->value);
+        emit(u->value->unit);
+    \}
+\}
+
+void emit(nExpr e)
+\{
+    if(e == NULL)
+        printf("/* null expr */");
+    else if(e->is(nkFunctionCall)) \{
+        nFunctionCall fc = nFunctionCall(e);
+        int n_args = 0;
+        for(nAssociation a = fc->first_actual; a;
+            a = a->next)
+            n_args++;
+        char *c_op;
+        char *fid = fc->func->idstr();
+        if(n_args == 2 \&\& (c_op = map_bin_op(fid))) \{
+            printf("(");        
+            emit(fc->first_actual->actual);
+            printf("%s", c_op);
+            emit(fc->first_actual->next->actual);
+            printf(")");
+        \} else if(n_args == 1 \&\& (c_op = map_un_op(fid))) \{
+            printf("%s", c_op);
+            emit(fc->first_actual->actual);
+        \} else if(!is_op(fid)) \{
+            emit_id(fc->func);
+            printf("(");
+            for(nAssociation a = fc->first_actual; a;
+                a = a->next) \{
+                emit(a->actual);
+                if(a->next)
+                    printf(", ");
+            \}
+            printf(")");
+        \} else
+            printf("/* %s(%d) */", fid, n_args);
+    \} else if(e->is(nkSimpleObjectRef)) \{
+        emit_id(nSimpleObjectRef(e)->object);
+    \} else if(e->is(nkLiteralRef)) \{
+        printf("(%s", nLiteralRef(e)->value? :"1");
+        if(e->is(nkPhysicalLiteral)) \{
+            printf("*");
+            emit(nPhysicalLiteral(e)->unit);
+        \}
+        printf(")");
+    \} else if(e->is(nkTypeConversion)) \{
+        printf("((");
+        emit(nTypeConversion(e)->target_type);
+        printf(")(");
+        emit(nTypeConversion(e)->expression);
+        printf("))");
+    \} else if(e->is(nkQualifiedExpr)) \{
+        emit(nQualifiedExpr(e)->expression);
+    \} else if(e->is(nkEnumLitRef)) \{
+        emit_id(nEnumLitRef(e)->value);
+    \} else
+        printf("/* XXX %s */", e->type_id());
+\}
+\end{code}
+
+
+%\def\bibname{Literaturzeiger} % immer ne extra Wurst :-)
+\begin{thebibliography}{9}
+
+\bibitem{msipc}
+ Matthias Lück. {\em CAD-Werkzeug zum Architekturentwurf für
+Algorithmen der Video Signal Verarbeitung}. Diplomarbeit D1-93,
+Arbeitsgebiet Schaltungen der Informationsverarbeitung, Universität
+Dortmund, 1993
+
+\bibitem{lrm}
+ {\em IEEE Standard VHDL Language Reference Manual}. ANSI/IEEE Std
+1076-1993, IEEE, 1994
+
+\bibitem{asu}
+ Alfred V. Aho, Ravi Sethi, Jeffrey D. Ullman. 
+ {\em Compilerbau}. Addison Wesley (Deutschland), 1988
+
+\bibitem{flex}
+ Vern Paxson. {\em man flexdoc}. {\tt flex-2.4.7.tar.gz}.
+
+\bibitem{bison}
+ Charles Donnelly, Richard Stallman. {\em Bison}. {\tt
+ bison-1.22.tar.gz}, Free Software Foundation, 1992
+
+\bibitem{cookbook}
+ Peter J. Ashenden. {\em The VHDL Cookbook First
+ Edition}. Dept. Computer Science, University of Adelaide South
+ Australia, 1990
+
+\bibitem{vhdl}
+ Douglas L. Perry. {\em VHDL}. McGraw Hill, 1991
+
+\end{thebibliography}
+
+\pagestyle{empty}
+\newpage
+
+\section*{Erklärung}
+Ich versichere, daß ich diese wissentschaftliche Arbeit selbstständig
+verfaßt und keine anderen als die angegebenen Quellen und Hilfsmittel
+benutzt habe. Die Stellen der Arbeit, die anderen Werken dem Wortlaut
+oder Sinn nach entnommen sind, wurden in jedem einzelnen Fall durch
+Angabe der Quelle als Entlehnung kenntlich gemacht. Das gleiche gilt
+auch für beigegebene Skizzen und Darstellungen. Die Arbeit hat in
+gleicher oder ähnlicher Form noch keiner Prüfungsbehörde vorgelegen.
+
+\bigskip\noindent
+Dortmund, den 12. April 1995
+
+\vspace{6cm}
+
+\section*{Einwilligung}
+Hiermit erkläre ich mich damit einverstanden, daß diese
+wissentschaftliche Arbeit nach den Bestimmungen des \S6 Absatz 1 des
+Gesetzes über Urheberrecht vom 9.9.1965 in die Bereichsbibliothek
+aufgenommen und damit für Leser der Bibliothek öffentlich zugänglich
+gemacht wird.
+
+Ferner bin ich damit einverstanden, daß gemäß \S54 Absatz 1 Satz 1
+dieses Gesetzes Leser zu persönlichen wissentschaftlichen Zwecken
+Kopien aus der Arbeit anfertigen dürfen.
+
+\bigskip\noindent
+Dortmund, den 12. April 1995
+
+\vspace{3cm}
+
+
+\end{document}

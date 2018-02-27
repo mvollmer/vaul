@@ -1,0 +1,101 @@
+// -*- c++ -*- $Id: sample.tree,v 1.2 1996/06/07 19:39:28 mvo Exp $
+
+#ifndef SAMPLE_TREE_H
+#define SAMPLE_TREE_H
+
+#include <vaulutil.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+typedef int graph_region_id;
+const graph_region_id GRAPH_NULL_REGION_ID = -1;
+
+%%graph
+
+node Node {
+    extra {
+	int region;
+	graph_region_id get_region_id() { return region; }
+	void set_region_id(graph_region_id id) { region = id; }
+    }
+};
+
+node Stat : Node {
+    attr int lineno;
+};
+
+node If : Stat {
+    Expr cond;
+    Stats then_stats;
+    Stats else_stats;
+};
+
+node While : Stat {
+    Expr cond;
+    Stats stats;
+};
+
+node Stats : Node {
+    Stats next;
+    Stat stat;
+};
+
+node Expr : Node {
+};
+
+node BinOp : Expr {
+    attr char op;
+    Expr left;
+    Expr right;
+};
+
+node Const : Expr {
+    attr double val;
+    attr bool buffer;
+};
+
+%%endgraph
+
+#endif // SAMPLE_TREE_H
+
+%%implementation
+
+#include <stream.h>
+
+#include "sample.h"
+#include "sample.m"
+
+void set_region(nNode n, int region)
+{
+    graph_writer wr(region);
+    wr.write(n);
+}
+
+void print(const char *lab, nNode n)
+{
+    printf("%s: ", lab);
+    if(n == NULL)
+	printf("<nil>\n");
+    else {
+	printf("region %d\n", n->region);
+	graph_printer pr(n->region);
+	pr.print(n);
+    }
+}
+
+main()
+{
+    nExpr e = mBinOp('*', mConst(2, true), mConst(3.141, false));
+    set_region(e, 1);
+
+    nStats s = mStats(NULL, mIf(42, e, NULL, NULL));
+    s->next = s;
+    nIf(s->stat)->then_stats = s;
+    set_region(s, 2);
+
+    print("stats", s);
+    print("expr", e);
+
+    cout << "true: " << int(true) << "\n";
+}

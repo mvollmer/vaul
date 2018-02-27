@@ -1,0 +1,76 @@
+\makeatletter
+
+\def\b{\textbf}
+
+\newcommand{\npic}[1]{{\scriptsize$$\input{pics/#1}$$}}
+
+\newcommand{\kapref}[1]{Kapitel \ref{#1}}
+\newcommand{\note}[1]{{\sf[ #1 ]}}
+\def\C++{C\raise0.1ex\hbox{\kern-0.2em+\kern-0.2em+}}
+
+%\newenvironment{desc}[1]
+% {\begin{list}{}{\itemsep=-\parsep}\item[\textbf{#1}]\item[]}
+% {\end{list}}
+
+\newenvironment{desc}[1]
+ {\par\noindent{#1}\par\vspace{-10pt}\begin{list}{}{}\item[]}
+ {\end{list}\par}
+
+\newenvironment{ndesc}[2]
+ {\medskip\par\noindent{#1 \hrulefill #2}\par\begin{list}{}
+  {\topsep=0pt}\item[]}
+ {\end{list}}
+
+
+\newcommand{\shortdesc}[1]
+ {\par\noindent{#1}\par}
+
+\newcommand{\shortndesc}[2]
+ {\medskip\par\noindent{#1 \hrulefill #2}\par}
+
+\let\originalverbatim=\verbatim
+\def\verbatim{\originalverbatim\advance\leftskip by\leftmargini}
+
+\catcode`\_=13
+\def_{{\tt\char'137}}
+
+\catcode`\"=13
+\def"{\begingroup\tt\let"=\endgroup}
+%\def\"{\char'42}
+\catcode`\<=13
+\catcode`\>=13
+\def\italcorendgroup{\/\endgroup}
+\def<{\begingroup\sl\let>=\italcorendgroup}
+\def\<{\char'74}\def\>{\char'76}
+
+%\begingroup \catcode `|=0 \catcode `[= 1
+%\catcode`]=2 \catcode `\{=12 \catcode `\}=12
+%\catcode`\\=12 |gdef|@xcode#1\end{code}[#1|end[code]]
+%|endgroup
+
+\def\@code{\trivlist \item\relax
+  \if@minipage\else\vskip\parskip\fi
+  \leftskip\@totalleftmargin\rightskip\z@skip
+  \advance\leftskip by \leftmargini
+  \parindent\z@\parfillskip\@flushglue\parskip\z@skip
+\@@par
+\@tempswafalse \def\par{\if@tempswa\hbox{}\fi\@tempswatrue\@@par
+\penalty\interlinepenalty}%
+\obeylines \verbatim@font \@noligs
+\def\{{\char'173}\def\}{\char'175}
+\def\c##1{// \textrm{##1}}
+\def\t##1{\texttt{##1}}
+\def\s##1{\textsl{##1}}
+\def\r##1{\textrm{##1}}
+\def\\{\char'134}
+\def\~{\char'176}
+\catcode`\"=12 \catcode`\<=12 \catcode`\>=12 \catcode`\_=12
+\catcode`\%=12 \catcode`\#=12}
+
+\def\code{\@code \frenchspacing\@vobeyspaces}
+\def\endcode{\if@newlist \leavevmode\fi\endtrivlist}
+
+\newenvironment{grammar}
+ {\begin{trivlist}\advance\leftskip by \leftmargini\parskip\z@skip\item\relax%
+  \obeylines\@vobeyspaces\def\is{::=}}
+ {\end{trivlist}}

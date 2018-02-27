@@ -1,0 +1,43 @@
+# $Id: Makeconf.in,v 1.4 1996/06/19 21:02:57 mvo Exp $
+
+local-libs := vaulutil vaul
+
+shared-libs := @shared_libs@
+static-libs := @static_libs@
+
+ifeq ($(static-libs),no)
+ shared-libs := yes
+endif
+
+abs_topdir := @topdir@
+pwd := $(shell pwd)
+topdir := $(shell $(abs_topdir)/@RELPATH@ $(pwd) $(abs_topdir))
+srcdir := $(topdir)/$(subdir)
+VPATH := $(srcdir)
+
+prefix := @prefix@
+exec_prefix := @exec_prefix@
+bindir := $(exec_prefix)/bin
+libdir := $(exec_prefix)/lib
+incdir := $(prefix)/include
+
+SHELL := /bin/sh
+
+CXX := @CXX@
+CXXFLAGS := @CXXFLAGS@
+CC = @CC@
+CFLAGS := @CFLAGS@
+LDFLAGS := $(filter -g, $(CXXFLAGS))
+
+AR := ar
+RANLIB := @RANLIB@
+DEFS := @DEFS@
+INSTALL := @INSTALL@
+INSTALL_DATA := @INSTALL_DATA@
+INSTALL_PROGRAM := @INSTALL_PROGRAM@
+
+LATEX := @LATEX@
+RELPATH = @RELPATH@
+
+../Makeconf: ../config.status ../Makeconf.in
+	cd $(topdir) && CONFIG_FILES=Makeconf CONFIG_HEADERS= ./config.status

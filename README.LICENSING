@@ -1,0 +1,14 @@
+* Notes about the licensing terms of this package
+
+Not all files in this package have the same licensing terms. All files
+are freely redistributable, however.
+
+For commercial use of this software, you have to negotiate an
+appropriate license with the University of Dortmund.
+
+It is our intend that this software can be used as the basis for other
+`free' software. If you find that you can't use it for your free
+software project because of the licensing terms, please notify us.
+
+The licensing terms are derived from the terms of CMU for their Mach
+OS, but they are not the same.

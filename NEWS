@@ -1,0 +1,168 @@
+$Id: NEWS,v 1.17 1996/06/25 18:04:14 mvo Exp $
+
+News in 960625
+
+* Fixed some minor bugs/portability problems
+
+News in 960620
+
+* Rewrote README in English.
+
+* Die meisten Dateien sind mit Lizenzen versehen.
+
+* Es gibt keine Versionsnummern mehr, nur noch Datumsangaben.
+
+* std_logic_1164, std_logic_arith, ... werden verstanden.
+  Ebenso die VITAL Sachen und sourcen der Free Model Foundation.
+  Findet sich in .../vlib/ieee und .../vlib/fmf.
+
+* File Typen könnten funktionieren. Es fehlen aber noch fast alle
+  vordefinierten Prozeduren und Funktionen. Mir fehlt die Seite im
+  LRM.
+
+* Access Typen könnten funktionieren.
+
+* Aliasse könnten funktionieren. Arraygrenzen werden aber noch
+  nicht beachtet.
+
+* Komplett neue Graphen-Rennerei. Die alte war ziemlich buggy. Ein
+  Wunder, daß sie überhaupt funktioniert hat.
+
+Neuigkeiten in 0.5-960313
+
+* Anpassungen an gcc-2.7.2
+
+* Ein paar mehr eingebaute Attribute.
+
+Neuigkeiten in 0.5-960220
+
+* Mehrdimensionale Arrays auch für Aggregate und partial associations
+
+Neuigkeiten in 0.5-960219
+
+* 'n paar bugfixes und cleanups
+
+* Unglaublicher Geschwindigkeitsgewinn bei overload_resolution.
+
+Neuigkeiten in 0.5-960216
+
+* conditional signal assignments
+
+* concurrent assertion statements
+
+* case statements
+
+Neuigkeiten in 0.5-960215
+
+* partial association, aber nur für eindimensionale Arrays und Records.
+
+* Aggregate auch für Signale.
+
+Neuigkeiten in 0.5-951224
+
+* Aggregate, aber nur eindimensionale Arrays und nur für Variablen.
+
+* Mode checks sind auf der Strecke geblieben.
+
+* Frohe Weihnachten.
+
+Neuigkeiten in 0.5-951105
+
+* Named association, aber keine partial association.
+
+Neuigkeiten in 0.5-951104
+
+* Records (ohne Fehlerprüfungen).
+
+Neuigkeiten in 0.5-951006
+
+* Na endlich. For-Schleifen. Und Slices.
+
+* In die Knotenbeschreibungen (*.t) kann die Dokumentation jetzt
+  direkt eingewoben werden. ctree erzeugt daraus LaTeX Code.
+
+* Die Modes eines Interfaces werden bei der Überprüfung von Zugriffen
+  auf dasselbe nicht beachtet sonder nur die ObjectClass. Ob das mit
+  dem LRM konform ist, ist noch zu prüfen.
+
+* Ach ja, die Librarydateien werden seit 950826 nicht mehr
+  gelockt. Ich vergaß.
+
+Neuigkeiten in 0.5-950924
+
+* Starke Verbesserungen der Arraybehandlung. Ist schon fast gut.
+  Index Constraints werden weitgehend beachtet.
+  Hauptsächlich fehlen noch Slices, Aggregates und Partial Association.
+
+Neuigkeiten in 0.5-950826
+
+* Rückanpassung an g++-2.6.3. Es sollte sich jetzt alles sowohl mit
+  g++-2.7.0 als auch mit g++-2.6.3 übersetzen lassen. Es war ungefähr
+  eine for-Schleife zu ändern.
+
+* Neues Makefile Schema. Die Makefiles in den Unterverzeichnissen sind
+  jetzt viel übersichtlicher. Die Arbeit erledigt 'Makecommon', die
+  Konfigurationsdetails nimmt 'Makeconf.in' auf. Letzten Endes soll
+  das ganze Paket konform zu den 'GNU Coding Standards' sein (bis auf
+  Abweichungen im Quelltext Layout...).
+
+* Separates Kompilieren. Durch die Überarbeitung der Makefiles (d.h.
+  schamloses Klauen bei textutils, hurd etc.) kann das Paket jetzt
+  in anderen als dem Sourceverzeichnis kompiliert werden.
+  Siehe INSTALL.
+
+* Shared Libraries. Mit Linux und ELF können jetzt auch Shared Libraries
+  erzeugt werden. 'configure' hat dazu die Option '--enable-shared'.
+
+* Erste Ansätze von Arrays. Unconstrained arrays werden ein bischen
+  unterstützt. Die Auflösung von Arrayzugriffen kontra
+  Funktionsaufrufe sollte stehen. Weitergehende Überprüfungen oder
+  constrained arrays und array subtypes werden nicht beachtet.
+  Die Arbeit an Arrays hat gezeigt, daß VHDL nicht nur ein großer
+  Haufen Mist ist, sondern noch nicht einmal zum Düngen taugt ;-)
+
+* Die Namen die design units von package bodies und architectures
+  kriegen, können jetzt durch Überladen von 'vaul_libpool::package_-
+  body_name' und 'architecture_name' festgelegt werden. Nützlich für
+  smarte design libraries.
+
+* Die smarten design libraries von 'vau' und 'v2c' werden jetzt von
+  'smart_lib.h' und 'smart_lib.cc' implementiert. Kann einfach für
+  eigene Programme verwendet werden.
+
+* Bugfixes, u.a. überlebt "vaul_library::get" jetzt einen "flush"
+  
+Neuigkeiten in 0.5-950808
+
+* Die Darstellung von vordefinierten Attributen ist ernst gemeint. Vor allem
+  die Signalattribute (EVENT, QUIET, TRANSACTION, DELAYED, ...) werden
+  ordentlich verarbeitet.
+
+* Ich habe auf gcc-2.7.0 und libc-5 (Linux) gewechselt. Dazu waren eine
+  Reihe von Änderungen an libvaul nötig:
+  - Deklarationen in for-Initialisierungen sind nur noch direkt in der
+    Schleife gültig. Hab ich angepasst, aber ältere g++ werden damit
+    Probleme haben, da jetzt u.U. zweimal 'for(int i; ...)' auftaucht.
+    Diese Stellen sollen Schritt für Schritt, wie sie jemandem auffallen
+    beseitigt werden.
+  - 'asprint' aus libutil heißt jetzt 'aprintf'.
+  - mehr fällt mir jetzt nicht ein...
+
+Neuigkeiten in 0.5-950725:
+
+* Attribute werden nicht mehr völlig ignoriert. Nur das EVENT Attribut
+  wird erkannt und in den Graphen aufgenommen. Die Darstellung der Attribute
+  muß noch gründlich überarbeitet werden.
+
+* Ab jetzt gibt es Versionskennungen. "x.y" sind die etwas ausführlicher
+  getesteten, bei denen Features als benutzbar gelten. "x.y-datum" sind
+  Snapshots meiner Sourcen, ohne Anspruch auf Funktionsfähigkeit.
+    Zur Illustration: Die laufende Version ist 0.5. Im Snapshot
+  0.5-950725 gibt es erste Spuren einer Attributverwaltung und in
+  Version 0.6 wird sie dann bis auf weiteres fertig sein.
+
+* Die Version der libvaul läßt sich über einen libpool erfragen, "vau"
+  hat eine neue Option "-V" zum Anzeigen derselben.
+
+* vaul wird jetzt von CVS verwaltet. Nach und nach werden auch "Id" Zeilen
+  in allen Sourcen auftauchen.

@@ -1,0 +1,172 @@
+# $Id: Makecommon,v 1.7 1996/06/25 18:03:42 mvo Exp $
+
+all:
+
+include ../Makeconf
+
+all_cxxflags := $(CPPFLAGS) $(DEFS) $(defs) $(CXXFLAGS) \
+                $(addprefix -I, $(include-dirs))
+
+all_cflags := $(CPPFLAGS) $(DEFS) $(defs) $(CFLAGS) \
+              $(addprefix -I, $(include-dirs))
+
+.SUFFIXES:
+
+%.o: %.cc
+	$(CXX) $(all_cxxflags) -c $< -o $@
+
+%.po: %.cc
+	$(CXX) $(all_cxxflags) -fPIC -c $< -o $@
+
+%.o: %.c
+	$(CC) $(all_cflags) -c $< -o $@
+
+%.po: %.c
+	$(CC) $(all_cflags) -fPIC -c $< -o $@
+
+%.cc: %.ll
+	flex -t >$@ $<
+
+%.cc %.tab.h: %.yy
+	bison -d $< -b $* && mv $*.tab.c $@
+
+version.cc: version.cc.in $(topdir)/VERSION
+	date=`date +%y%m%d`; \
+        version=`cat $(topdir)/VERSION | sed -e "s/snap/$$date/"`; \
+	sed $< -e "s/@VERSION@/$$version/" >$@-tmp
+	mv $@-tmp $@
+
+# targets
+
+depfiles :=
+cleanfiles := $(extra-clean)
+install-headers :=
+install-libs :=
+install-progs :=
+
+all-makefile-frags := $(addsuffix .lmak, $(libraries)) \
+                      $(addsuffix .pmak, $(programs))
+
+include $(all-makefile-frags) /dev/null
+
+define echo-library-make-frag
+(echo 'ifeq ($$(static-libs),yes)'; \
+ echo 'install-libs += $*.a'; \
+ echo 'all: $*.a'; \
+ echo 'endif'; \
+ echo 'ifeq ($$(shared-libs),yes)'; \
+ echo 'install-libs += $*.so'; \
+ echo 'all: $*.so'; \
+ echo 'endif'; \
+ echo 'install-headers += $$($*-headers)'; \
+ echo 'depfiles += $$(addsuffix .d, $$($*-objs))'; \
+ echo 'cleanfiles += $$(addsuffix .o, $$($*-objs)) $*.a'; \
+ echo 'cleanfiles += $$(addsuffix .po, $$($*-objs)) $*.so'; \
+ echo '$*.a: $$(addsuffix .o, $$($*-objs))'; \
+ echo '	rm -f $$@'; \
+ echo '	$$(AR) rc $$@ $$^'; \
+ echo '	$$(RANLIB) $$@'; \
+ echo '$*.so: $$(addsuffix .po, $$($*-objs))'; \
+ echo '	$$(CXX) -shared $$(LDFLAGS) $$($*-LDFLAGS) -Wl,-soname,$$@ -o $$@ $$+')
+endef
+
+%.lmak:
+	@echo creating makefile fragment for library $*
+	@$(echo-library-make-frag) >$@
+
+target-libs = $(addprefix -l, $($@-libs))
+target-libdirs = $(foreach l, $(filter $(local-libs), $($@-libs)), -L../lib$l)
+
+define echo-program-make-frag
+(echo 'install-progs += $*'; \
+ echo 'depfiles += $$(addsuffix .d, $$($*-objs))'; \
+ echo 'cleanfiles += $$(addsuffix .o, $$($*-objs)) $*'; \
+ echo ''; \
+ echo 'ifeq ($$(shared-libs),yes)'; \
+ echo '$*-local-libs := $$(foreach l, $$(filter $$(local-libs), $$($*-libs)), ../lib$$l/lib$$l.so)'; \
+ echo 'else'; \
+ echo '$*-local-libs := $$(foreach l, $$(filter $$(local-libs), $$($*-libs)), ../lib$$l/lib$$l.a)'; \
+ echo 'endif'; \
+ echo '$*-local-libs := $$(subst ../$$(subdir)/,,$$($*-local-libs))'; \
+ echo 'all: $*'; \
+ echo '$*: $$(addsuffix .o, $$($*-objs)) $$($*-local-libs)'; \
+ echo '	$$(CXX) $$(LDFLAGS) $$($*-LDFLAGS) -o $$@ $$(addsuffix .o, $$($*-objs)) $$(target-libdirs) $$(target-libs)')
+endef
+
+%.pmak:
+	@echo creating makefile fragment for program $*
+	@$(echo-program-make-frag) >$@
+
+# dependencies
+
+ifneq ($(nodep),t)
+ include $(depfiles) /dev/null
+endif
+
+%.d: %.cc $(generated)
+	@echo updating dependencies of $<
+	@(set -e; $(CXX) $(all_cxxflags) -M $<  | \
+	 sed -e 's/$*\.o:/$*.o $*.po $@:/' > $@)
+
+%.d: %.c $(generated)
+	@echo updating dependencies of $<
+	@(set -e; $(CC) $(all_cflags) -M $<  | \
+	 sed -e 's/$*\.o:/$*.o $*.po $@:/' > $@)
+
+# subdependencies
+
+../%:
+	$(MAKE) -C $(@D) $(@F)
+
+# cleaning
+
+clean:
+	-rm -f $(cleanfiles)
+	-rm -f `find . -name '*~' -print` core
+
+distclean: clean
+	-rm -f $(depfiles)
+
+maintainer-clean: distclean
+	-rm -f $(generated)
+
+.PRECIOUS: $(generated)
+
+# installing
+
+install-libs := $(filter-out $(dont-install), $(install-libs))
+install-headers := $(filter-out $(dont-install), $(install-headers))
+install-progs := $(filter-out $(dont-install), $(install-progs))
+
+install: $(install-libs) $(install-headers) $(install-progs)
+	$(topdir)/mkinstalldirs $(libdir) $(bindir) \
+	  $(addprefix $(incdir)/, $(sort $(dir $(install-headers))))
+	ll='$(install-libs)'; for l in $$ll; do \
+	  $(INSTALL_DATA) $$l $(libdir)/$$l; \
+	done
+	hh='$(install-headers)'; for h in $$hh; do \
+	  $(INSTALL_DATA) $$h $(incdir)/$$h; \
+	done
+	pp='$(install-progs)'; for p in $$pp; do \
+	  $(INSTALL_PROGRAM) $$p $(bindir)/$$p; \
+	done
+
+# distributing
+
+dist-files := $(sort $(dist-files)) $(all-makefile-frags)
+
+sub-dist: $(dist-files)
+	$(topdir)/mkinstalldirs $(addprefix $(DISTDIR)/$(subdir)/, $(sort $(dir $(dist-files))))
+	ff='$(dist-files)'; for f in $$ff; do \
+	  ln $$f $(DISTDIR)/$(subdir)/$$f; \
+	done
+
+sub-bindist: $(install-libs) $(install-progs)
+	$(topdir)/mkinstalldirs $(DISTDIR)/$(subdir)
+	ll='$(install-libs)'; for l in $$ll; do \
+	  cp $$l $(DISTDIR)/$(subdir)/$$f; \
+	done
+	pp='$(install-progs)'; for p in $$pp; do \
+	  cp $$p $(DISTDIR)/$(subdir)/$$p; \
+	  strip $(DISTDIR)/$(subdir)/$$p; \
+	done

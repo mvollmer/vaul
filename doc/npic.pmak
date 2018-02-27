@@ -1,0 +1,12 @@
+install-progs += npic 
+ depfiles += $(addsuffix .d, $(npic-objs)) 
+ cleanfiles += $(addsuffix .o, $(npic-objs)) npic 
+ 
+ ifeq ($(shared-libs),yes)
+ npic-local-libs := $(foreach l, $(filter $(local-libs), $(npic-libs)), ../lib$l/lib$l.so)
+ else
+ npic-local-libs := $(foreach l, $(filter $(local-libs), $(npic-libs)), ../lib$l/lib$l.a)
+ endif
+ all: npic
+ npic: $(addsuffix .o, $(npic-objs)) $(npic-local-libs)
+	 $(CXX) $(LDFLAGS) $(npic-LDFLAGS) -o $@ $(addsuffix .o, $(npic-objs)) $(target-libdirs) $(target-libs)

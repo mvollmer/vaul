@@ -1,0 +1,18 @@
+ifeq ($(static-libs),yes)
+install-libs += libvaulutil.a
+all: libvaulutil.a
+endif
+ifeq ($(shared-libs),yes)
+install-libs += libvaulutil.so
+all: libvaulutil.so
+endif
+install-headers += $(libvaulutil-headers)
+depfiles += $(addsuffix .d, $(libvaulutil-objs))
+cleanfiles += $(addsuffix .o, $(libvaulutil-objs)) libvaulutil.a
+cleanfiles += $(addsuffix .po, $(libvaulutil-objs)) libvaulutil.so
+libvaulutil.a: $(addsuffix .o, $(libvaulutil-objs))
+	rm -f $@
+	$(AR) rc $@ $^
+	$(RANLIB) $@
+libvaulutil.so: $(addsuffix .po, $(libvaulutil-objs))
+	$(CXX) -shared $(LDFLAGS) $(libvaulutil-LDFLAGS) -Wl,-soname,$@ -o $@ $+

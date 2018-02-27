@@ -1,0 +1,13 @@
+install-progs += v2c 
+ depfiles += $(addsuffix .d, $(v2c-objs)) 
+ cleanfiles += $(addsuffix .o, $(v2c-objs)) v2c 
+ 
+ ifeq ($(shared-libs),yes)
+ v2c-local-libs := $(foreach l, $(filter $(local-libs), $(v2c-libs)), ../lib$l/lib$l.so)
+ else
+ v2c-local-libs := $(foreach l, $(filter $(local-libs), $(v2c-libs)), ../lib$l/lib$l.a)
+ endif
+ v2c-local-libs := $(subst ../$(subdir)/,,$(v2c-local-libs))
+ all: v2c
+ v2c: $(addsuffix .o, $(v2c-objs)) $(v2c-local-libs)
+	 $(CXX) $(LDFLAGS) $(v2c-LDFLAGS) -o $@ $(addsuffix .o, $(v2c-objs)) $(target-libdirs) $(target-libs)

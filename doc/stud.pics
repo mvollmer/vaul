@@ -1,0 +1,486 @@
+% -*- text -*-
+%
+%  Bilder für stud.tex
+%
+
+% document header, to set up environment for measuring things
+%
+'\NeedsTeXFormat{LaTeX2e}
+
+\documentclass[a4paper,11pt]{report}
+\usepackage{german}
+\usepackage{umlaute}
+\usepackage{epic}
+\usepackage{eepic}
+\usepackage{vaul}
+
+\begin{document}
+\scriptsize'
+
+% document footer
+%
+'\end{document}'
+
+
+% And now for the figures..
+
+! 'pics/stud.intro.1'
+
+a: Assign @ 0 10
+-target r
+-value b
+;
+
+r: VarRef @ 8 12
+.id a
+;
+
+b: BinOp @ 8 8
+.op '*'
+-left l1
+-right l2
+;
+
+l1: Literal @ 15 9
+.value 6
+;
+
+l2: Literal @ 15 5
+.value 9
+;
+
+! 'pics/stud.intro.2'
+
+f: Function @ 0 20
+.id f
+-decls d
+-stats s D*D
+;
+
+d: Variable @ 10 20
+.id a
+-link nil
+-type t
+;
+
+t: Integer @ 20 20
+;
+
+s: Assign @ 3 10
+-target r
+-value b
+;
+
+r: VarRef @ 11 12
+-var d 2U*5UR
+;
+
+b: BinOp @ 11 8
+.op '*'
+-left l1
+-right l2
+;
+
+l1: Literal @ 18 9
+.value 6
+;
+
+l2: Literal @ 18 5
+.value 9
+;
+
+! 'pics/stud.bsp.1'
+
+ts: TopScope @ 0 11
+-scope nil
+-first_decl l1
+;
+
+l1: LibNameDecl @ 10 10
+-scope ts 4U10L*D
+-next_decl l2
+.id work
+;
+
+l2: LibNameDecl @ 21 10
+-scope ts 4U4L10L+
+-next_decl in 3D*2D
+.id std
+;
+
+in: IndirectDecl @ 5 2
+-scope ts 3U14R+
+-next_decl p 
+.id 'NULL'
+-ind_scope is
+;
+
+p: Package @ 17 2
+-scope ts 3U7R9U4L6L+
+-next_decl nil
+.id beispiel
+;
+
+is: StandardPackage @ 15 '-4'
+;
+
+! 'pics/stud.bsp.2'
+
+p: Package @ 0 8
+.id beispiel
+-first_decl f
+;
+
+f: Function @ 8 8
+.id gcd
+-return_type t
+-first_formal i1 D*D
+;
+
+i1: Interface @ 2 0
+.id n
+-type t
+-next_element i2
+-initial_value nil
+.object_class Constant
+.mode In
+;
+
+i2: Interface @ 16 0
+.id m
+-type t 4U*3UR
+-next_element nil
+-initial_value nil
+.object_class Constant
+.mode In
+;
+
+t: SubType @ 18 6
+.id INTEGER
+;
+
+! 'pics/stud.bsp.3'
+
+st: SubType @ 0 10
+.id INTEGER
+-base t
+-constraint c
+-resol_func nil
+;
+
+t: IntegerType @ 8 10
+.id NULL
+;
+
+c: RangeConstraint @ 8 6
+.dir Up
+-first f
+-last l
+;
+
+f: Expr @ 20 4
+;
+
+l: Expr @ 20 2
+;
+
+
+! 'pics/stud.bsp.4'
+
+pb: PackageBody @ 0 6
+.id beispiel
+-continued p
+-first_decl fb D*D
+;
+
+p: Package @ 12 6
+.id beispiel
+-continued nil
+-first_decl f D*D
+;
+
+fb: SubprogramBody @ 2 0
+-continued f
+-stats s D*D
+;
+
+f: Function @ 15 0
+.id gcd
+-continued nil
+;
+
+s: Statement @ 10 '-6'
+;
+
+! 'pics/stud.bsp.5'
+
+ls: LoopStat @ 0 20
+-iteration_scheme ws
+-stats s D*D
+;
+
+s: Statement @ 5 15
+;
+
+ws: WhileScheme @ 12 20
+-condition fc 3D*D
+;
+
+fc: FunctionCall @ 1 10
+-first_actual a1
+-func f D*D
+;
+
+a1: Association @ 13 10
+-next_actual a2
+-actual sor R3D*D
+-formal f1 D7L3L*D
+;
+
+a2: Association @ 25 10
+-next_actual nil
+-actual lr R3D*D
+-formal f2 D3L3L*D
+;
+
+sor: SimpleObjectRef @ 12 3
+-object o D*D
+;
+
+o: Variable @ 16 '-1'
+.id u
+;
+
+lr: LiteralRef @ 28 3
+.value 0
+;
+
+f: PredefOp @ 0 '-5'
+.id '\char34\>\char34'
+-first_formal f1
+;
+
+f1: Interface @ 10 '-5'
+.id NULL
+-next_element f2
+;
+
+f2: Interface @ 24 '-5'
+.id NULL
+-next_element nil
+;
+
+! 'pics/stud.bsp.6'
+
+f : SubprogramBody @ '-3' 20
+-first_decl v1
+-stats va D*D
+;
+
+v1: Variable @ 10 20
+.id u
+-next_decl v2
+-type t
+-initial_value nil
+;
+
+v2: Variable @ 20 20
+.id v
+-next_decl v3
+;
+
+v3: Variable @ 28 20
+.id t
+-next_decl nil
+;
+
+t: SubType @ 18 16
+.id INTEGER
+;
+
+va: VarAssignment @ '-2' 12
+-target tg
+-value vl
+-next st D*D
+;
+
+st: Statement @ 0 4
+;
+
+tg: SimpleObjectRef @ 10 11
+-object v1 3U*7UR
+;
+
+vl: SimpleObjectRef @ 10 7
+-object o2
+;
+
+o2: Interface @ 22 7
+.id m
+;
+
+! 'pics/stud.bsp.7'
+
+e: Entity @ 0 19
+.id and_gate
+-first_generic g1
+-stats nil
+;
+
+g1: Interface @ 10 19
+.id delay
+-next_element nil
+-initial_value iv
+-type dl
+.object_class Constant
+.mode In
+;
+
+dl: SubType @ 23 15
+.id delay_length
+-base time D*D
+;
+
+time: PhysicalType @ 2 10
+.id time
+-first pu1
+;
+
+pu1: PhysicalUnit @ 12 10
+.id fs
+-next pu2
+-type time 2D14L5L*UR
+;
+
+pu2: PhysicalUnit @ 22 10
+.id ps
+-next pu3
+-type time 2D15L+
+;
+
+pu3: PhysicalUnit @ 32 10
+.id ns
+-next nil
+-type time 2D15L+
+;
+ 
+iv: PhysicalLiteral @ 23 19
+.value 2
+-unit pu3 *D
+;
+
+! 'pics/stud.bsp.8'
+
+a: Architecture @ 0 21
+.id behaviour
+-continued e
+-stats p
+;
+
+e: Entity @ 10 21
+.id and_gate
+;
+
+p: Process @ 10 18;
+.id NULL
+-sensitivities sens
+-stats s
+;
+
+sens: SigList @ 18 16
+;
+
+s: SignalAssignment @ 18 13
+;
+
+! 'pics/stud.bsp.9'
+
+a: Architecture @ 0 20
+.id structure
+-specs cs
+-stats ci D*D
+;
+
+cs: ConfigSpec @ 10 20
+-binding bi
+;
+
+bi: BindingIndic @ 20 20
+-unit ab
+-generic_assoc nil
+-port_assoc pa
+;
+
+pa: Association @ 30 16
+;
+
+ab: Architecture @ 30 20
+.id behaviour
+;
+
+ci: ComponentInst @ 5 12
+.id l2
+-config cs 4U*3UR
+-binding bi2
+;
+
+bi2: BindingIndic @ 18 12
+-unit cd
+-generic_assoc nil
+-port_assoc pa2
+;
+
+cd: Component @ 28 12
+.id and_gate
+;
+
+pa2: Association @ 28 8
+;
+
+! 'pics/stud.bsp.10'
+
+c: Configuration @ 0 23
+-entity e
+-config bc
+;
+
+e: Entity @ 30 22
+.id half_adder
+;
+
+bc: BlockConfig @ 10 20
+-block ar
+-configs cc D*D
+;
+
+ar: Architecture @ 20 20
+.id structure
+-continued e
+;
+
+cc: CompConfig @ 10 15
+-comps cil
+-binding bi
+;
+
+cil: CompInstList @ 20 15
+-link nil
+-inst ci
+;
+
+ci: ComponentInst @ 30 14
+.id l2
+;
+
+bi: BindingIndic @ 20 10
+-unit ar2
+-generic_assoc ga
+-port_assoc nil
+;
+
+ar2: Architecture @ 30 10
+.id behaviour
+;
+
+ga: Association @ 30 7
+;

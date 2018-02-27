@@ -1,0 +1,109 @@
+# $Id: Makefile.in,v 1.13 1996/06/25 18:04:08 mvo Exp $
+# Master Makefile für `vaul'.
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+@SET_MAKE@
+
+system := @host@
+
+SHELL = /bin/sh
+
+SUBDIRS = libvaulutil ctree libvaul doc
+
+DISTFILES = README QUICKSTART INSTALL NEWS VERSION README.LICENSING \
+            Makecommon Makeconf.in Makefile.preconfig configure.in \
+            configure config.sub config.guess install-sh mkinstalldirs \
+            relpath fake-relpath Makefile.in README.BIN
+
+BINDISTFILES = README.BIN
+
+all:
+	for d in $(SUBDIRS); do (cd $$d && $(MAKE) $@) || exit 1; done
+
+install uninstall:
+	for d in $(SUBDIRS); do (cd $$d && $(MAKE) $@) || exit 1; done
+
+dvi ps:
+	cd doc && $(MAKE) $@
+
+check:
+installcheck:
+
+clean-recursive distclean-recursive maintainer-clean:
+	for d in $(SUBDIRS); do \
+	  (cd $$d && $(MAKE) nodep=t `echo $@|sed 's/-recursive//'`) \
+	   || exit 1; \
+	done
+
+clean: clean-recursive clean-local
+
+clean-local:
+	rm -f *~ *% core
+
+distclean: distclean-recursive distclean-local
+
+distclean-local: clean-local
+	rm -f config.status distname
+	rm -f Makefile config.cache config.log
+
+distname: VERSION
+	echo vaul-`cat VERSION` | sed -e "s/snap/`date +%y%m%d`/" \
+	  >$@-tmp; mv $@-tmp $@
+
+distdir = `cat distname`
+dist: update-version $(DISTFILES) distname
+	rm -rf $(distdir)
+	mkdir $(distdir)
+	for file in $(DISTFILES); do \
+	  ln $$file $(distdir); \
+	done
+	ln Makefile.preconfig $(distdir)/Makefile
+	dn=$(distdir); \
+	for subdir in $(SUBDIRS); do \
+	  (cd $$subdir && $(MAKE) DISTDIR=../$$dn sub-dist) || exit 1; \
+	done
+	tar --gzip -chvf $(distdir).tar.gz $(distdir)
+	rm -rf $(distdir) distname
+
+bindist: distname
+	rm -rf $(distdir)
+	mkdir $(distdir)
+	for f in $(BINDISTFILES); do \
+	  ln $$f $(distdir); \
+	done
+	dn=$(distdir); \
+	for subdir in $(SUBDIRS); do \
+	  (cd $$subdir && $(MAKE) DISTDIR=../$$dn sub-bindist) || exit 1; \
+	done
+	tar --gzip -chvf $(distdir).$(system).tar.gz $(distdir)
+	rm -rf $(distdir) distname
+
+# cause all version-strings to be updated from VERSION
+update-version: VERSION
+	touch $<
+
+# add current date to the version string
+snapshot: VERSION
+	echo `cat $< | sed -e s/-snap//`-snap >$<-tmp
+	mv $<-tmp $<
+
+# remove date from version
+release: VERSION
+	echo `cat $< | sed -e s/-snap//` >$<-tmp
+	mv $<-tmp $<
+
+# For the justification of the following Makefile rules, see node
+# `Automatic Rem#aking' in GNU Autoconf documentation.
+
+Makefile: config.status Makefile.in
+	CONFIG_FILES=$@ CONFIG_HEADERS= ./config.status
+
+config.status: configure
+	./config.status --recheck
+configure: configure.in
+	cd $(srcdir) && autoconf
+
+# Tell versions [3.59,3.63) of GNU make not to export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

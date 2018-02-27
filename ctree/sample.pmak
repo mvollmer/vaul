@@ -1,0 +1,13 @@
+install-progs += sample 
+ depfiles += $(addsuffix .d, $(sample-objs)) 
+ cleanfiles += $(addsuffix .o, $(sample-objs)) sample 
+ 
+ ifeq ($(shared-libs),yes)
+ sample-local-libs := $(foreach l, $(filter $(local-libs), $(sample-libs)), ../lib$l/lib$l.so)
+ else
+ sample-local-libs := $(foreach l, $(filter $(local-libs), $(sample-libs)), ../lib$l/lib$l.a)
+ endif
+ sample-local-libs := $(subst ../$(subdir)/,,$(sample-local-libs))
+ all: sample
+ sample: $(addsuffix .o, $(sample-objs)) $(sample-local-libs)
+	 $(CXX) $(LDFLAGS) $(sample-LDFLAGS) -o $@ $(addsuffix .o, $(sample-objs)) $(target-libdirs) $(target-libs)

@@ -1,0 +1,13 @@
+install-progs += vau 
+ depfiles += $(addsuffix .d, $(vau-objs)) 
+ cleanfiles += $(addsuffix .o, $(vau-objs)) vau 
+ 
+ ifeq ($(shared-libs),yes)
+ vau-local-libs := $(foreach l, $(filter $(local-libs), $(vau-libs)), ../lib$l/lib$l.so)
+ else
+ vau-local-libs := $(foreach l, $(filter $(local-libs), $(vau-libs)), ../lib$l/lib$l.a)
+ endif
+ vau-local-libs := $(subst ../$(subdir)/,,$(vau-local-libs))
+ all: vau
+ vau: $(addsuffix .o, $(vau-objs)) $(vau-local-libs)
+	 $(CXX) $(LDFLAGS) $(vau-LDFLAGS) -o $@ $(addsuffix .o, $(vau-objs)) $(target-libdirs) $(target-libs)

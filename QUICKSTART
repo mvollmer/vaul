@@ -1,0 +1,88 @@
+There is no real documentation for the library or the example
+programs.  But until then, here are some hints about how to run "vau"
+and "v2c" on the sample VHDL files and how to get started with the
+abstract syntax graph.
+
+* Running vau and v2c
+
+There are some VHDL files in libvaul/vlib/* that can be used to test
+`vau' and `v2c'. Each VHDL design library is contained in a separate
+subdirectory.
+
+    vlib/std/
+	The packages std.standard and std.textio.
+
+    vlib/ieee/
+	The IEEE std_logic_1164 packages and the VITAL timing and
+	primitive packages.	
+
+    vlib/fmf/
+	Some packages and models from the Free Model Foundation.
+
+    vlib/testlib/
+	
+`vau' can be used to analyze the VHDL files and store the generated
+syntax graph for later use by "v2c". The graph is stored in a file
+named ".cache" in the subdirectory of the corresponding design
+library. The file names and the directory structure are currently
+hardcoded into vau and v2c (actually, into smart_lib), so be sure to
+follow the steps below exactly.
+
+    % cd .../libvaul
+
+	vau and v2c know that the libraries are in vlib/*/.cache
+
+    % vau -lstd r vlib/std/standard.vhdl
+    % vau -lstd r vlib/std/textio.vhdl
+    % vau -lieee r vlib/ieee/std_logic_1164.vhd
+    % vau -lieee r vlib/ieee/.... etc, etc
+
+	`-lstd' means: use the "std" library as the working library.
+	`r' means: replace (or add) the design units in the listed
+	VHDL files.
+	The files must be analyzed in the right order, since
+	later runs reference the stored graphs.
+
+	Vau will produce some diagnostics beginning with `xxx' or `+++'
+        that can be ignored.
+
+    % vau -lieee -v t
+      1: std_logic_1164       vlib/ieee/std_l May 30 01:02, 247 nodes
+      2: std_logic_1164-body  vlib/ieee/std_l May 30 01:02, 3221 nodes
+      3: std_logic_arith      vlib/ieee/std_l May 30 01:02, 429 nodes
+      4: std_logic_arith-body vlib/ieee/std_l May 30 01:03, 6823 nodes
+      5: ...    
+
+	This lists all design units of a design library. `-v' means
+	`verbose'.
+
+    % vau r vlib/testlib/attr.vhdl
+    % v2c a_a-of-attr
+    ... generated pseudo C ...
+
+	`-ltestlib' is the default. Architectures get funny names like
+	"a_a-of-attr" to make them unique. This can of course be
+	customized.
+
+There is also a `-s' flag for both vau and v2c that makes them
+`smart'.  When given the -s flag, they try to analyze missing design
+units on the fly. But there are a lot of race conditions in libvaul
+that currently prevent this feature from working correctly. In theory,
+on should be able to say:
+
+    % rm vlib/*/.cache      # remove all design libraries
+    % vau -s -lfmf r vlib/fmf/nlb6201.vhd
+
+and every missing design unit should be analyzed automatically.  Although
+vau dumps core, it makes some progress. Just repeat the last command a
+couple of times and in the end all design units should have been
+inserted into their libraries.
+
+* The abstract syntax graph
+
+Right now, the most useful source of information about the generated
+syntax graph is probably "v2c.cc", the source code of the `VHDL to
+pseudo-C' translator.
+
+The text is in german, but "doc/stud.dvi" has some
+out-of-date-but-useful figures in the appendix.

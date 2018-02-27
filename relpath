@@ -1,0 +1,50 @@
+#! /bin/sh
+# take two absolute paths and build a relative one 
+# from the first to the second
+
+car () { echo $1; }
+cdr () { shift; echo $*; }
+
+short=t
+case $1 in -f) shift; short=f;; esac
+
+if test $# != 2; then
+  echo usage: $0 [-f] /from /to
+  exit 1
+fi
+
+from=$1
+to=$2
+
+saved_IFS="$IFS"
+IFS=/
+fl=`echo $from`
+tl=`echo $to`
+IFS="$saved_IFS"
+
+for fc in $fl; do
+  if test x$fc = x`car $tl`; then
+    tl=`cdr $tl`; fl=`cdr $fl`
+  fi
+done
+
+s=
+t=
+for fc in $fl; do
+  case $fc in
+    ..) echo relpath: can\'t handle from-path \`$from\' >&2; exit 1;;
+    .) ;;
+    *) t=$t$s'..'; s=/ ;;
+  esac
+done
+
+for tc in $tl; do
+  t=$t$s$tc
+  s=/
+done
+
+if test $short = t && test `expr x"$t" : '.*' \> x"$to" : '.*'` = 1; then
+  echo $to
+else
+  echo $t
+fi

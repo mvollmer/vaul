@@ -1,0 +1,19 @@
+ifeq ($(static-libs),yes)
+ install-libs += libvaul.a
+ all: libvaul.a
+ endif
+ ifeq ($(shared-libs),yes)
+ install-libs += libvaul.so
+ all: libvaul.so
+ endif
+ install-headers += $(libvaul-headers)
+ depfiles += $(addsuffix .d, $(libvaul-objs))
+ cleanfiles += $(addsuffix .o, $(libvaul-objs)) libvaul.a
+ cleanfiles += $(addsuffix .po, $(libvaul-objs)) libvaul.so
+ libvaul.a: $(addsuffix .o, $(libvaul-objs)) 
+	 rm -f $@ 
+	 $(AR) rc $@ $^ 
+	 $(RANLIB) $@
+ 
+ libvaul.so: $(addsuffix .po, $(libvaul-objs)) 
+	 $(CXX) -shared $(LDFLAGS) $(libvaul-LDFLAGS) -Wl,-soname,$@ -o $@ $+

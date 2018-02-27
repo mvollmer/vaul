@@ -1,0 +1,62 @@
+% -*- text -*-
+%
+%  Bilder für vaul.tex
+%
+
+% document header, to set up environment for measuring things
+%
+'\NeedsTeXFormat{LaTeX2e}
+
+\documentclass[a4paper,11pt]{book}
+\usepackage{german}
+\usepackage{umlaute}
+\usepackage{epic}
+\usepackage{eepic}
+
+\begin{document}
+\scriptsize'
+
+% document footer
+%
+'\end{document}'
+
+
+% And now for the figures..
+
+! 'pics/intro'
+
+e : BinOp @ 0 4
+. op +
+- left l
+- right r
+;
+
+l : VariableRef @ 10 5
+. id a
+;
+
+r : VariableRef @ 10 2
+. id b
+;
+
+! 'pics/idlist'
+
+i1 : IdList @ 0 0
+.id Eine
+-link i2
+;
+
+i2 : IdList @ 8 0
+.id Liste
+-link i3
+;
+
+i3 : IdList @ 17 0
+.id Von
+-link i4
+;
+
+i4 : IdList @ 25 0
+.id Ids
+-link nil
+;

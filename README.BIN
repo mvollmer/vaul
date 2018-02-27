@@ -1,0 +1,6 @@
+This is a binary only distribution of VAUL, the Vhdl Analyzer and
+Utility Library. All binaries are stripped to save space.
+
+You must also get the source distribution, it includes much more
+information and the missing pieces. This binary distribution is not
+expected to be really useful on its own.

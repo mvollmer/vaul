@@ -1,0 +1,60 @@
+%
+% Dokumentation zu libvaul.a
+%
+\nonstopmode
+\NeedsTeXFormat{LaTeX2e}
+
+\documentclass[a4paper,11pt,draft]{book}
+\usepackage{german}
+\usepackage[iso]{umlaute}
+\usepackage{epic}
+\usepackage{eepic}
+\usepackage{vaul}
+
+\begin{document}
+
+\title{"libvaul" Referenz \\ {\small für Version 0.0}}
+\author{Marius Vollmer\\<mvo@nt.e-technik.uni-dortmund.de>}
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Einleitung}
+
+Die \C++ Klassenbibliothek "libvaul" ist dazu gedacht, den ersten
+Schritt bei der Verarbeitung von VHDL Beschreibungen zu übernehmen. Die
+Bibliothek enthält einen Parser, der VHDL Text in einen abstrakten Graphen
+umsetzt, eine paar Klassen um diese Graphen in Dateien zu speichern und
+ein paar Hilfssachen. Daher der Name:
+\begin{center}
+{\bf\large V}hdl {\bf\large A}nalyser and {\bf\large U}tility
+ {\bf\large L}ibrary.
+\end{center}
+
+Der Rest des Buches ist in folgenden Kapiteln untergebracht:
+
+\begin{description}
+
+\item [VHDL Bibliotheken] (\kapref{vhdlbiblio}) beschreibt die Klassen,
+mit denen man VHDL design units in VHDL design libraries verwalten
+kann. Dazu gehören die Erzeugung eines abstrakten Syntaxgraphen aus
+VHDL Text, Einfügen und Wiederfinden von Syntaxgraphen in design
+libraries und Erstellen von Statistiken über design libraries.
+
+\item [Der abstrakte Syntaxgraph.] (\kapref{syngraph}) Hier wird der
+erzeugte Syntaxgraph detailiert beschrieben. Anhand der Grammatik von VHDL
+wird gezeigt, wie sich VHDL Text als Graph wiederfindet.
+
+\end{description}
+
+Die Verwaltung von VHDL Bibliotheken ist eine einfache Sache und kann
+in der Regel eins-zu-eins von den Beispielprogrammen in
+\kapref{vhdlbiblio} übernommen werden. Wenn man den Syntaxgraphen von
+einer design unit dann einmal hat, zeigt \kapref{syngraph} was er bedeutet.
+
+\include{classes}
+\include{nodes}
+\include{grammar}
+
+\end{document}
